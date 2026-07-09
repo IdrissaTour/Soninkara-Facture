@@ -1,0 +1,153 @@
+# Soninkara Facture - Directives de Style et Développement Frontend
+
+Vous devez impérativement suivre ces règles pour maintenir une cohérence visuelle et technique parfaite sur l'ensemble des pages de l'application **Soninkara Facture**.
+
+---
+
+## 1. Design System & Palette de Couleurs
+
+Toutes les couleurs doivent provenir de la configuration Tailwind (`tailwind.config.ts`) ou des variables CSS de (`app/globals.css`). **N'utilisez jamais de couleurs hexadécimales brutes ou de couleurs génériques dans les classes.**
+
+### Couleurs Principales (Thème)
+*   **Brand (Bleu Indigo de la marque)** :
+    *   Fond léger : `bg-brand-50` (#eef2ff)
+    *   Bordures/Séparateurs : `border-brand-100` (#e0e7ff) ou `border-brand-200`
+    *   Texte secondaire/Boutons secondaires : `text-brand-600` ou `text-brand-700`
+    *   Bouton principal / Couleur active : `bg-brand-600` (`hover:bg-brand-700`)
+    *   Texte foncé / Fond très sombre : `text-brand-950` / `bg-brand-950`
+*   **Sidebar (Barre Latérale)** :
+    *   Arrière-plan : `bg-slate-950` (Sombre de haute qualité)
+    *   Liens actifs : `bg-brand-600 text-white`
+    *   Liens inactifs : `text-slate-400 hover:bg-slate-900 hover:text-slate-100`
+
+### Statuts (Feedback Couleurs)
+*   **Payé / Validé (Vert)** : `bg-emerald-50 text-emerald-700 border-emerald-100`
+*   **Envoyé / En attente (Bleu)** : `bg-blue-50 text-blue-700 border-blue-100`
+*   **Brouillon (Slate)** : `bg-slate-50 text-slate-700 border-slate-200`
+*   **En retard (Rouge/Rose)** : `bg-rose-50 text-rose-700 border-rose-100`
+
+---
+
+## 2. Typographie & Alignement
+
+*   **Police Globale** : Utilisez toujours la police **Outfit** (`font-sans`) définie via les variables système.
+*   **Titres de Page** :
+    *   Titre principal (H1) : `text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900`
+    *   Sous-titre explicatif : `text-xs md:text-sm text-slate-500`
+*   **Hiérarchie de Texte** :
+    *   Labels de formulaires : `block text-xs font-bold text-slate-700 mb-2`
+    *   Nombres de facturation / Devis : Utilisez toujours la fonction utilitaire `formatFCFA` pour le formatage du Franc CFA.
+
+---
+
+## 3. Cartes & Conteneurs (Cards System)
+
+Toutes les sections, tableaux et aperçus doivent être encapsulés dans le système de cartes défini :
+*   **Style Standard** :
+    ```tsx
+    <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-premium">
+      {/* Contenu */}
+    </div>
+    ```
+*   **Effet de Survol Interactif** (sur les statistiques ou les cartes cliquables) :
+    Ajouter les classes `card-hover-effect` (défini dans `globals.css`) ou `transition-all duration-300 hover:shadow-premium-hover hover:-translate-y-0.5`.
+*   **Effet de Verre (Glassmorphism)** (utilisé pour les popups, éléments flottants ou menus floutés) :
+    Utiliser les classes `.glass-panel` ou `.glass-card` configurées avec `backdrop-filter`.
+
+---
+
+## 4. Layouts & Structure des Pages
+
+*   **Conteneur Principal** : Toutes les pages du Dashboard doivent s'insérer dans l'espace disponible avec la structure suivante :
+    ```tsx
+    <div className="space-y-8 animate-fadeIn">
+       {/* Contenu de la page */}
+    </div>
+    ```
+*   **Marges Intérieures** : `p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto` (géré par le `DashboardLayout` dans `app/dashboard/layout.tsx`).
+
+---
+
+## 5. Icônes
+
+*   Utilisez exclusivement la bibliothèque **`lucide-react`** pour tous les boutons, liens et indicateurs visuels.
+*   Taille recommandée pour les icônes de bouton : `h-4 w-4` ou `h-4.5 w-4.5`.
+*   Style uniforme : appliquez des couleurs douces aux icônes (`text-slate-400` ou `text-brand-600`).
+
+---
+
+## 6. Tableaux de Données (Data Tables)
+
+*   **Structure standard** :
+    *   Conteneur : `<div className="overflow-x-auto">`
+    *   Tableau : `<table className="w-full text-left border-collapse">`
+    *   En-tête (`thead`) : `border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400`
+    *   Lignes (`tbody tr`) : `hover:bg-slate-50/50 transition-colors`
+    *   Bouton d'action : `inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 font-bold text-slate-600 hover:bg-slate-50 transition-colors`
+
+---
+
+## 7. Gestion de l'Impression & des Invoices
+
+*   Lors de la création ou modification des pages de facturation ou d'impression :
+    *   Ajouter la classe `no-print` à tous les éléments d'interface utilisateur qui ne doivent pas figurer sur la facture imprimée ou le PDF final (boutons de retour, menus, barres d'outils).
+    *   Utiliser la classe `print-shadow-none` sur le document de facturation pour enlever les ombres lors de la génération du PDF.
+
+---
+
+## 8. Workflow de Développement (Implementation Workflow)
+
+Pour chaque tâche de développement, modification ou ajout de fonctionnalité, respectez scrupuleusement ce workflow :
+1.  **Planifier et Comprendre** : Analyser les besoins, identifier les pages concernées, et planifier la structure avant d'écrire du code.
+2.  **Poser les Fondations** : Configurer les jetons de design dans `tailwind.config.ts` ou ajouter les classes d'utilitaires globaux dans `app/globals.css`.
+3.  **Créer les Composants Reutilisables** : Créer d'abord les composants d'interface (boutons, cartes, sélecteurs) dans le dossier `/components`.
+4.  **Assembler les Pages** : Importer et assembler ces composants dans les routes `/app` avec un design adaptatif fluide (Desktop et Mobile).
+5.  **Optimiser, Polir & Vérifier** : Mettre en œuvre de micro-animations interactives, tester la réactivité globale, et lancer un build de test (`npm run build`) pour valider qu'aucune erreur TypeScript ou de compilation n'est introduite.
+
+---
+
+## 9. Règle Anti-Gravité : Standard de Cohérence Visuelle (Dashboard Design Standards)
+
+Toutes les nouvelles pages ou nouveaux composants créés dans l'application **Soninkara Facture** doivent impérativement s'aligner sur les standards esthétiques et techniques établis dans le Tableau de Bord (`app/dashboard/page.tsx`) :
+
+### A. Cartes et Conteneurs Premium
+- **Structure de Carte de base** : Tout widget ou section d'information doit utiliser ce balisage exact pour conserver une ombre premium et des bords arrondis fluides :
+  ```tsx
+  <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-premium card-hover-effect">
+    {/* Contenu */}
+  </div>
+  ```
+- **Bannière d'Accueil & En-têtes** : Utiliser un dégradé allant du ardoise sombre vers le bleu indigo de la marque pour les sections clés :
+  `bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-950 p-6 md:p-8 rounded-3xl text-white shadow-xl`
+  - Les titres principaux doivent utiliser la police Outfit en taille `text-2xl md:text-3xl font-extrabold tracking-tight`.
+
+### B. Graphiques Personnalisés en SVG
+- **Pas de bibliothèques tierces de graphiques** : Dessiner des graphiques SVG interactifs et légers directement.
+- **Directives pour les graphiques** :
+  - Définir des dégradés linéaires CSS pour les surfaces sous courbe (`#chart-blue` et `#chart-green` avec des opacités adaptées).
+  - Tracer les lignes de courbe avec `<polyline>` (épaisseur `strokeWidth="3.5"`, fins arrondis `strokeLinecap="round"`).
+  - Utiliser des marqueurs `<circle>` blancs avec bordure colorée pour chaque point de données.
+
+### C. Listes & Tableaux de Données
+- **Tableaux Modernes** :
+  - Toujours utiliser un conteneur défilable horizontalement (`overflow-x-auto`).
+  - L'en-tête du tableau (`thead`) doit être discret, en majuscules, gras et espacé (`border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400`).
+  - Les lignes du corps (`tbody tr`) doivent avoir un effet de survol doux (`hover:bg-slate-50/50 transition-colors`).
+  - Badges de statut : Utiliser des badges avec un point de couleur dynamique pour le statut (ex: `paid`, `sent`, `draft`, `overdue`), sous le format :
+    ```tsx
+    <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold [classes_dynamiques]">
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      [label]
+    </span>
+    ```
+- **Listes d'Éléments** :
+  - Structure verticale avec bordures invisibles devenant visibles au survol (`hover:border-slate-100 transition-colors`).
+  - Initiales du client dans un cercle coloré (`bg-indigo-50 text-brand-600 font-bold text-xs`).
+
+### D. Formateurs Utilitaires & Bibliothèque d'Icônes
+- **Formatage de Devis/Facture** : Utiliser systématiquement la fonction `formatFCFA` pour formater en Franc CFA.
+- **Formatage de Date** : Utiliser la fonction `formatDateFrench` pour un affichage en français.
+- **Icônes** : Utiliser exclusivement `lucide-react`.
+
+### E. Règle de Courtoisie (User Global Rule)
+- L'agent de développement doit commencer **toutes** ses réponses en saluant le client avec la formule obligatoire : **"SALAM IDRISSA "** (exactement avec cet espacement et en majuscules).

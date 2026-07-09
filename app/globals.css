@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #F8FAFC; /* Soft cool blue-gray background */
+  --foreground: #0F172A; /* Slate 900 */
+  --card-bg: #FFFFFF;
+  --border-color: #E2E8F0; /* Slate 200 */
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-outfit), 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism effects */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Premium shadows & animations */
+.card-hover-effect {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-hover-effect:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom Webkit scrollbar for premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Print utilities for generating premium PDFs and invoices */
+@media print {
+  /* Hide sidebar, topbar, scrollbars and UI elements */
+  aside,
+  header,
+  footer,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset layout wrapper padding and offsets */
+  .lg\:pl-64,
+  div[class*="pl-"] {
+    padding-left: 0 !important;
+  }
+
+  main,
+  div[class*="p-"] {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  body,
+  html {
+    background: white !important;
+    color: black !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11px !important; /* Slightly smaller text for print fitting */
+  }
+
+  /* Invoice document page wrapper styling */
+  .print-invoice-sheet {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 10mm 15mm !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: white !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Avoid splitting section contents (e.g. totals or terms) across page boundaries */
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Reduce table paddings for print to save space */
+  .print-invoice-sheet table th,
+  .print-invoice-sheet table td {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .print-invoice-sheet .mt-16 {
+    margin-top: 24px !important;
+  }
+
+  /* Force background colors to print (e.g. status badges, slate-50 backgrounds) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

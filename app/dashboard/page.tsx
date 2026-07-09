@@ -121,7 +121,7 @@ export default function DashboardPage() {
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-950 p-6 md:p-8 rounded-3xl text-white shadow-xl">
         <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Akksil ak diam, {company?.name || 'votre entreprise'} !</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">I bisimila, {company?.name || 'votre entreprise'} !</h2>
           <p className="text-slate-300 text-xs md:text-sm mt-1 max-w-xl">
             Pilotez l&apos;activité de votre entreprise, suivez vos créances et éditez des factures conformes aux normes fiscales régionales (TVA 18%).
           </p>

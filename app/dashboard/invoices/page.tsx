@@ -12,8 +12,7 @@ import { getInvoices } from '@/lib/actions/db';
 
 export default function InvoicesPage() {
   const router = useRouter();
-  const isSupabase = typeof window !== 'undefined' && !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  const [invoices, setInvoices] = useState<Invoice[]>(isSupabase ? [] : mockInvoices);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<'date' | 'total'>('date');

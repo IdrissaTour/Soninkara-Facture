@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Printer, Calendar, Receipt, User, Mail, Phone, MapPin, Edit, Trash2 } from 'lucide-react';
+import { ChevronLeft, Printer, Calendar, Receipt, User, Mail, Phone, MapPin, Edit, Trash2, Share2, MessageCircle, Download, Loader2 } from 'lucide-react';
 import { mockCompany } from '@/lib/mock-data';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { InvoiceStatus, Invoice, InvoiceItem, Company } from '@/lib/types';
@@ -22,6 +22,86 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [status, setStatus] = useState<InvoiceStatus | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
+  const [showShareDropdown, setShowShareDropdown] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  const getPdfOptions = () => {
+    return {
+      margin: 10,
+      filename: `Facture_${invoice?.invoice_number || 'export'}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true,
+        logging: false,
+        letterRendering: true
+      },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+    };
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+    setShowShareDropdown(false);
+    setIsGeneratingPDF(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.querySelector('.print-invoice-sheet');
+      if (element) {
+        await html2pdf().from(element as HTMLElement).set(getPdfOptions()).save();
+      } else {
+        alert("Erreur: Élément de facture introuvable.");
+      }
+    } catch (error) {
+      console.error("Erreur de génération PDF:", error);
+      alert("Erreur lors de la génération du PDF.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleSharePDF = async () => {
+    if (!invoice) return;
+    setShowShareDropdown(false);
+    setIsGeneratingPDF(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.querySelector('.print-invoice-sheet');
+      if (element) {
+        const pdfBlob = await html2pdf().from(element as HTMLElement).set(getPdfOptions()).outputPdf('blob');
+        const fileName = `Facture_${invoice.invoice_number}.pdf`;
+        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          const compName = company?.name || mockCompany.name;
+          await navigator.share({
+            files: [file],
+            title: `Facture ${invoice.invoice_number}`,
+            text: `Bonjour, voici la facture ${invoice.invoice_number} de ${formatFCFA(invoice.total)} émise par ${compName}.`
+          });
+        } else {
+          alert("Le partage natif de fichiers n'est pas supporté par ce navigateur. Téléchargement du PDF...");
+          await html2pdf().from(element as HTMLElement).set(getPdfOptions()).save();
+        }
+      } else {
+        alert("Erreur: Élément de facture introuvable.");
+      }
+    } catch (error) {
+      console.error("Erreur lors du partage PDF:", error);
+      alert("Erreur lors du partage du PDF.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    if (!invoice) return;
+    setShowShareDropdown(false);
+    const compName = company?.name || mockCompany.name;
+    const message = `Bonjour, voici la facture *${invoice.invoice_number}* d'un montant de *${formatFCFA(invoice.total)}* émise par *${compName}*.\n\nDate d'échéance : *${formatDateFrench(invoice.due_date)}*.\n\nMerci pour votre collaboration !`;
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -113,7 +193,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
             </select>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto relative">
           <Link
             href={`/dashboard/invoices/${params.id}/edit`}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition-colors border border-slate-700"
@@ -128,6 +208,54 @@ export default function InvoiceDetailPage({ params }: PageProps) {
             <Trash2 className="h-4 w-4" />
             Supprimer
           </button>
+
+          <div className="relative flex-1 sm:flex-initial">
+            <button
+              onClick={() => setShowShareDropdown(!showShareDropdown)}
+              disabled={isGeneratingPDF}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition-colors border border-slate-700 disabled:opacity-50"
+            >
+              {isGeneratingPDF ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="h-4 w-4" />
+              )}
+              Partager
+            </button>
+
+            {showShareDropdown && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setShowShareDropdown(false)} 
+                />
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl z-20 animate-fadeIn">
+                  <button
+                    onClick={handleSharePDF}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <Share2 className="h-4 w-4 text-brand-400" />
+                    Partager le PDF (Mobile)
+                  </button>
+                  <button
+                    onClick={handleWhatsAppShare}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <MessageCircle className="h-4 w-4 text-emerald-400" />
+                    Partager sur WhatsApp
+                  </button>
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
+                  >
+                    <Download className="h-4 w-4 text-indigo-400" />
+                    Télécharger le PDF
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <button
             onClick={handlePrint}
             className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-md shadow-brand-600/10"
@@ -280,7 +408,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                 <span className="font-semibold text-slate-900">{formatFCFA(invoice.subtotal)}</span>
               </div>
               <div className="flex justify-between text-xs text-slate-600">
-                <span>TVA (18%)</span>
+                <span>{invoice.tva > 0 ? 'TVA (18%)' : 'TVA (Exonéré)'}</span>
                 <span className="font-semibold text-slate-900">{formatFCFA(invoice.tva)}</span>
               </div>
               <div className="border-t border-slate-200 my-2 pt-2 flex justify-between text-sm font-bold text-slate-900">
@@ -293,7 +421,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
         {/* Professional Footer message */}
         <div className="mt-16 text-center text-[10px] text-slate-400 font-semibold border-t border-slate-100 pt-6">
-          <p>Merci pour votre collaboration ! Une pénalité de retard de 10% s&apos;applique après la date d&apos;échéance.</p>
+          <p>Merci pour votre confiance et votre précieuse collaboration ! Pour toute question, veuillez nous contacter.</p>
         </div>
       </div>
     </div>

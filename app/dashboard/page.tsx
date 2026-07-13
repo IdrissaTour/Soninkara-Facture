@@ -2,31 +2,34 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, ArrowDownRight, Wallet, Receipt, Clock, AlertTriangle, Plus, User } from 'lucide-react';
-import { mockInvoices, mockClients, mockCompany } from '@/lib/mock-data';
+import { ArrowUpRight, ArrowDownRight, Wallet, Receipt, Clock, AlertTriangle, Plus, User, TrendingDown, Tag, Calendar } from 'lucide-react';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { clsx } from 'clsx';
-import { getInvoices, getClients, getCompany } from '@/lib/actions/db';
-import { Invoice, Client, Company } from '@/lib/types';
+import { getInvoices, getClients, getCompany, getExpenses } from '@/lib/actions/db';
+import { Invoice, Client, Company, Expense } from '@/lib/types';
 
 export default function DashboardPage() {
-  const isSupabase = typeof window !== 'undefined' && !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  const [invoices, setInvoices] = useState<Invoice[]>(isSupabase ? [] : mockInvoices);
-  const [clients, setClients] = useState<Client[]>(isSupabase ? [] : mockClients);
-  const [company, setCompany] = useState<Company | null>(isSupabase ? null : mockCompany);
-  const [loading, setLoading] = useState(isSupabase);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [invs, clis, comp] = await Promise.all([
+        const [invs, clis, comp, exps] = await Promise.all([
           getInvoices(),
           getClients(),
-          getCompany()
+          getCompany(),
+          getExpenses()
         ]);
         setInvoices(invs);
         setClients(clis);
         setCompany(comp);
+        setExpenses(exps);
       } catch (err) {
         console.error('Error loading dashboard data:', err);
       } finally {
@@ -36,11 +39,27 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
-  // 1. Calculate dashboard statistics from state
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.total, 0);
-  const totalPaid = invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0);
-  const totalPending = invoices.filter(inv => inv.status === 'sent').reduce((sum, inv) => sum + inv.total, 0);
-  const totalOverdue = invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0);
+  // Filter invoices and expenses based on dates
+  const filteredInvoices = invoices.filter(inv => {
+    if (startDate && inv.issue_date < startDate) return false;
+    if (endDate && inv.issue_date > endDate) return false;
+    return true;
+  });
+
+  const filteredExpenses = expenses.filter(exp => {
+    if (startDate && exp.date < startDate) return false;
+    if (endDate && exp.date > endDate) return false;
+    return true;
+  });
+
+  // Calculate statistics from filtered state
+  const totalInvoiced = filteredInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  const totalPaid = filteredInvoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0);
+  const totalPending = filteredInvoices.filter(inv => inv.status === 'sent').reduce((sum, inv) => sum + inv.total, 0);
+  const totalOverdue = filteredInvoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0);
+
+  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const netBalance = totalPaid - totalExpenses;
 
   const stats = [
     {
@@ -64,9 +83,29 @@ export default function DashboardPage() {
       isUp: true
     },
     {
+      name: 'Dépenses',
+      value: formatFCFA(totalExpenses),
+      subtext: 'Frais de fonctionnement',
+      icon: TrendingDown,
+      color: 'bg-rose-50 text-rose-600 border-rose-100',
+      pillColor: 'bg-rose-100 text-rose-700',
+      trend: '-2.4%',
+      isUp: false
+    },
+    {
+      name: 'Solde Trésorerie',
+      value: formatFCFA(netBalance),
+      subtext: 'Encaissé - Dépenses',
+      icon: Tag,
+      color: netBalance >= 0 ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-rose-50 text-rose-600 border-rose-100',
+      pillColor: netBalance >= 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-rose-100 text-rose-700',
+      trend: netBalance >= 0 ? 'Positif' : 'Négatif',
+      isUp: netBalance >= 0
+    },
+    {
       name: 'En Attente',
       value: formatFCFA(totalPending),
-      subtext: 'Factures envoyées non payées',
+      subtext: 'Factures envoyées',
       icon: Clock,
       color: 'bg-amber-50 text-amber-600 border-amber-100',
       pillColor: 'bg-amber-100 text-amber-700',
@@ -81,7 +120,7 @@ export default function DashboardPage() {
       color: 'bg-rose-50 text-rose-600 border-rose-100',
       pillColor: 'bg-rose-100 text-rose-700',
       trend: '+8.1%',
-      isUp: false // warning trend
+      isUp: false
     }
   ];
 
@@ -106,6 +145,67 @@ export default function DashboardPage() {
       </span>
     );
   };
+
+  // 2. Generate data for the chart (last 6 months)
+  const getMonthsList = () => {
+    const list = [];
+    const date = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(date.getFullYear(), date.getMonth() - i, 1);
+      list.push({
+        label: d.toLocaleDateString('fr-FR', { month: 'short' }),
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      });
+    }
+    return list;
+  };
+
+  const months = getMonthsList();
+
+  // For each month, calculate total invoiced and total paid
+  const chartData = months.map(m => {
+    const invsInMonth = filteredInvoices.filter(inv => {
+      const invDate = new Date(inv.issue_date);
+      return invDate.getFullYear() === m.year && invDate.getMonth() === m.month;
+    });
+
+    const invoiced = invsInMonth.reduce((sum, inv) => sum + inv.total, 0);
+    const paid = invsInMonth.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0);
+
+    return {
+      label: m.label,
+      invoiced,
+      paid
+    };
+  });
+
+  // Find max value for scaling Y axis
+  const maxVal = Math.max(...chartData.map(d => Math.max(d.invoiced, d.paid, 100000)));
+
+  // Map values to coordinates
+  // X coordinates: 50, 150, 250, 350, 450, 550
+  // Y coordinates: from 200 (value = 0) to 40 (value = maxVal)
+  const chartPoints = chartData.map((d, index) => {
+    const x = 50 + index * 100;
+    const yInvoiced = 200 - (d.invoiced / maxVal) * 160;
+    const yPaid = 200 - (d.paid / maxVal) * 160;
+    return {
+      x,
+      yInvoiced,
+      yPaid,
+      invoicedVal: d.invoiced,
+      paidVal: d.paid,
+      label: d.label
+    };
+  });
+
+  const polylineFacture = chartPoints.map(p => `${p.x},${p.yInvoiced}`).join(' ');
+  const polylineEncaisse = chartPoints.map(p => `${p.x},${p.yPaid}`).join(' ');
+
+  const pathFactureArea = `M 50 200 ${chartPoints.map(p => `L ${p.x} ${p.yInvoiced}`).join(' ')} L 550 200 Z`;
+  const pathEncaisseArea = `M 50 200 ${chartPoints.map(p => `L ${p.x} ${p.yPaid}`).join(' ')} L 550 200 Z`;
 
   if (loading) {
     return (
@@ -135,8 +235,47 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* Date Filters */}
+      <div className="flex flex-col sm:flex-row items-end gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-premium">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-700 w-full sm:w-auto shrink-0 mb-2 sm:mb-0">
+          <Calendar className="h-4.5 w-4.5 text-slate-400" />
+          Filtrer par date :
+        </div>
+        <div className="grid grid-cols-2 gap-3 w-full sm:w-auto sm:flex sm:items-center">
+          <div className="flex flex-col gap-1 w-full sm:w-44">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Date début</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 bg-white"
+            />
+          </div>
+          <div className="flex flex-col gap-1 w-full sm:w-44">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Date fin</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 bg-white"
+            />
+          </div>
+        </div>
+        {(startDate || endDate) && (
+          <button
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+            }}
+            className="w-full sm:w-auto text-xs font-bold text-rose-500 hover:text-rose-600 px-3.5 py-2.5 rounded-xl border border-rose-100 bg-rose-50 hover:bg-rose-100 transition-colors"
+          >
+            Réinitialiser
+          </button>
+        )}
+      </div>
+
       {/* Statistics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -209,14 +348,12 @@ export default function DashboardPage() {
               </defs>
 
               {/* Area filled paths */}
-              {/* Blue (Facturé): (50, 180) -> (150, 140) -> (250, 160) -> (350, 80) -> (450, 60) -> (550, 40) */}
               <path
-                d="M 50 180 L 150 140 L 250 160 L 350 80 L 450 60 L 550 40 L 550 200 L 50 200 Z"
+                d={pathFactureArea}
                 fill="url(#chart-blue)"
               />
-              {/* Green (Encaissé): (50, 200) -> (150, 170) -> (250, 180) -> (350, 120) -> (450, 90) -> (550, 50) */}
               <path
-                d="M 50 200 L 150 170 L 250 180 L 350 120 L 450 90 L 550 50 L 550 200 L 50 200 Z"
+                d={pathEncaisseArea}
                 fill="url(#chart-green)"
               />
 
@@ -227,7 +364,7 @@ export default function DashboardPage() {
                 strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                points="50,180 150,140 250,160 350,80 450,60 550,40"
+                points={polylineFacture}
               />
               <polyline
                 fill="none"
@@ -235,37 +372,34 @@ export default function DashboardPage() {
                 strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                points="50,200 150,170 250,180 350,120 450,90 550,50"
+                points={polylineEncaisse}
               />
 
               {/* Data points markers */}
-              <circle cx="50" cy="180" r="4.5" fill="#FFFFFF" stroke="#4F46E5" strokeWidth="2.5" />
-              <circle cx="150" cy="140" r="4.5" fill="#FFFFFF" stroke="#4F46E5" strokeWidth="2.5" />
-              <circle cx="250" cy="160" r="4.5" fill="#FFFFFF" stroke="#4F46E5" strokeWidth="2.5" />
-              <circle cx="350" cy="80" r="4.5" fill="#FFFFFF" stroke="#4F46E5" strokeWidth="2.5" />
-              <circle cx="450" cy="60" r="4.5" fill="#FFFFFF" stroke="#4F46E5" strokeWidth="2.5" />
-              <circle cx="550" cy="40" r="4.5" fill="#FFFFFF" stroke="#4F46E5" strokeWidth="2.5" />
+              {chartPoints.map((p, i) => (
+                <circle key={`blue-${i}`} cx={p.x} cy={p.yInvoiced} r="4.5" fill="#FFFFFF" stroke="#4F46E5" strokeWidth="2.5" />
+              ))}
 
-              <circle cx="50" cy="200" r="4.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.5" />
-              <circle cx="150" cy="170" r="4.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.5" />
-              <circle cx="250" cy="180" r="4.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.5" />
-              <circle cx="350" cy="120" r="4.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.5" />
-              <circle cx="450" cy="90" r="4.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.5" />
-              <circle cx="550" cy="50" r="4.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.5" />
+              {chartPoints.map((p, i) => (
+                <circle key={`green-${i}`} cx={p.x} cy={p.yPaid} r="4.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.5" />
+              ))}
 
               {/* X Axis Labels */}
-              <text x="50" y="222" fill="#94A3B8" fontSize="11" textAnchor="middle" fontWeight="500">Jan</text>
-              <text x="150" y="222" fill="#94A3B8" fontSize="11" textAnchor="middle" fontWeight="500">Fév</text>
-              <text x="250" y="222" fill="#94A3B8" fontSize="11" textAnchor="middle" fontWeight="500">Mar</text>
-              <text x="350" y="222" fill="#94A3B8" fontSize="11" textAnchor="middle" fontWeight="500">Avr</text>
-              <text x="450" y="222" fill="#94A3B8" fontSize="11" textAnchor="middle" fontWeight="500">Mai</text>
-              <text x="550" y="222" fill="#94A3B8" fontSize="11" textAnchor="middle" fontWeight="500">Juin</text>
+              {chartPoints.map((p, i) => (
+                <text key={`text-${i}`} x={p.x} y="222" fill="#94A3B8" fontSize="11" textAnchor="middle" fontWeight="500">{p.label}</text>
+              ))}
 
               {/* Y Axis Labels */}
               <text x="40" y="204" fill="#94A3B8" fontSize="10" textAnchor="end" fontWeight="500">0</text>
-              <text x="40" y="134" fill="#94A3B8" fontSize="10" textAnchor="end" fontWeight="500">1M</text>
-              <text x="40" y="84" fill="#94A3B8" fontSize="10" textAnchor="end" fontWeight="500">3M</text>
-              <text x="40" y="34" fill="#94A3B8" fontSize="10" textAnchor="end" fontWeight="500">5M</text>
+              <text x="40" y="134" fill="#94A3B8" fontSize="10" textAnchor="end" fontWeight="500">
+                {maxVal >= 1000000 ? `${(maxVal * 0.4).toFixed(1).replace('.0', '')}M` : `${((maxVal * 0.4) / 1000).toFixed(0)}k`}
+              </text>
+              <text x="40" y="84" fill="#94A3B8" fontSize="10" textAnchor="end" fontWeight="500">
+                {maxVal >= 1000000 ? `${(maxVal * 0.75).toFixed(1).replace('.0', '')}M` : `${((maxVal * 0.75) / 1000).toFixed(0)}k`}
+              </text>
+              <text x="40" y="34" fill="#94A3B8" fontSize="10" textAnchor="end" fontWeight="500">
+                {maxVal >= 1000000 ? `${(maxVal).toFixed(1).replace('.0', '')}M` : `${(maxVal / 1000).toFixed(0)}k`}
+              </text>
             </svg>
           </div>
         </div>

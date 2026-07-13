@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, TrendingDown } from 'lucide-react';
 import { clsx } from 'clsx';
+import { createClient } from '@/lib/supabase/client';
 
 interface SidebarProps {
   companyName?: string;
@@ -13,9 +14,24 @@ interface SidebarProps {
 export default function Sidebar({ companyName = 'Soninkara Facture', userEmail = 'entrepreneur@teranga.sn' }: SidebarProps) {
   const pathname = usePathname();
 
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const isSupabaseConfigured = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    if (isSupabaseConfigured) {
+      try {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error('Error logging out:', err);
+      }
+    }
+    window.location.href = '/login';
+  };
+
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Factures', href: '/dashboard/invoices', icon: FileText },
+    { name: 'Dépenses', href: '/dashboard/expenses', icon: TrendingDown },
     { name: 'Clients', href: '/dashboard/clients', icon: Users },
     { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
   ];
@@ -73,13 +89,13 @@ export default function Sidebar({ companyName = 'Soninkara Facture', userEmail =
           </div>
         </div>
         
-        <Link
-          href="/login"
+        <button
+          onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-950/20 hover:text-rose-300 transition-colors duration-200"
         >
           <LogOut className="h-5 w-5" />
           Déconnexion
-        </Link>
+        </button>
       </div>
     </aside>
   );

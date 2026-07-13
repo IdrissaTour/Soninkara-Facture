@@ -33,6 +33,7 @@ export default function EditInvoicePage({ params }: PageProps) {
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState('');
   const [status, setStatus] = useState<'draft' | 'sent' | 'paid' | 'overdue'>('draft');
+  const [applyTax, setApplyTax] = useState(true);
 
   // Dynamic items lines state
   const [items, setItems] = useState<FormItem[]>([]);
@@ -55,6 +56,7 @@ export default function EditInvoicePage({ params }: PageProps) {
           setDueDate(invoice.due_date);
           setStatus(invoice.status);
           setNotes(invoice.notes || '');
+          setApplyTax(invoice.tva > 0);
           
           if (invItems && invItems.length > 0) {
             setItems(invItems.map(item => ({
@@ -100,7 +102,9 @@ export default function EditInvoicePage({ params }: PageProps) {
     quantity: parseFloat(item.quantity) || 0,
     unit_price: parseFloat(item.unit_price) || 0
   }));
-  const { subtotal, tva, total } = calculateInvoiceTotals(parsedItemsForCalculation);
+  const { subtotal, tva: calculatedTva, total: calculatedTotal } = calculateInvoiceTotals(parsedItemsForCalculation);
+  const tva = applyTax ? calculatedTva : 0;
+  const total = applyTax ? calculatedTotal : subtotal;
 
   const handleSave = async (targetStatus: 'draft' | 'sent' | 'paid' | 'overdue') => {
     setFormError('');
@@ -356,6 +360,22 @@ export default function EditInvoicePage({ params }: PageProps) {
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-premium">
               <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-3 mb-4">Résumé financier</h3>
               
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 mb-4">
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-800">Appliquer la TVA (18%)</span>
+                  <span className="text-[10px] text-slate-400 font-semibold">Exonérer si décoché</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={applyTax} 
+                    onChange={(e) => setApplyTax(e.target.checked)} 
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                </label>
+              </div>
+
               <div className="space-y-3.5 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>Sous-total HT</span>
@@ -384,7 +404,7 @@ export default function EditInvoicePage({ params }: PageProps) {
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-md shadow-brand-600/10"
                 >
                   <Send className="h-4 w-4" />
-                  Mettre à jour & Envoyer
+                  Enregistrer
                 </button>
                 <button
                   type="button"

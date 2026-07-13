@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { mockCompany, mockClients, mockInvoices, mockInvoiceItems } from '@/lib/mock-data';
-import { Company, Client, Invoice, InvoiceItem, InvoiceStatus } from '@/lib/types';
+import { mockCompany, mockClients, mockInvoices, mockInvoiceItems, mockExpenses } from '@/lib/mock-data';
+import { Company, Client, Invoice, InvoiceItem, InvoiceStatus, Expense } from '@/lib/types';
 
 // Helper to check if Supabase is fully configured
 function isSupabaseConfigured() {
@@ -559,6 +559,159 @@ export async function deleteClientAction(id: string): Promise<boolean> {
     return true;
   } catch (err) {
     console.error('Exception deleting client:', err);
+    return false;
+  }
+}
+
+// ----------------------------------------------------
+// EXPENSE ACTIONS
+// ----------------------------------------------------
+
+export async function getExpenses(): Promise<Expense[]> {
+  if (!isSupabaseConfigured()) {
+    return mockExpenses;
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // Get company first
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('owner_id', user.id)
+      .maybeSingle();
+
+    if (!company) return [];
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('company_id', company.id)
+      .order('date', { ascending: false });
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data as Expense[];
+  } catch {
+    return [];
+  }
+}
+
+export async function createExpenseAction(expenseData: Omit<Expense, 'id' | 'company_id'>): Promise<Expense> {
+  if (!isSupabaseConfigured()) {
+    const newId = `exp-${Date.now()}`;
+    const mockNewExpense: Expense = {
+      ...expenseData,
+      id: newId,
+      company_id: 'comp-1'
+    };
+    mockExpenses.unshift(mockNewExpense);
+    return mockNewExpense;
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // Get company ID
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('owner_id', user.id)
+      .single();
+
+    if (!company) {
+      throw new Error('No company configured yet.');
+    }
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert({
+        ...expenseData,
+        company_id: company.id
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Failed to create expense');
+    }
+
+    revalidatePath('/dashboard/expenses');
+    revalidatePath('/dashboard');
+    return data as Expense;
+  } catch (err) {
+    console.error('Error creating expense:', err);
+    throw err;
+  }
+}
+
+export async function updateExpenseAction(id: string, expenseData: Omit<Expense, 'id' | 'company_id'>): Promise<Expense> {
+  if (!isSupabaseConfigured()) {
+    const foundIdx = mockExpenses.findIndex(e => e.id === id);
+    if (foundIdx !== -1) {
+      mockExpenses[foundIdx] = {
+        ...mockExpenses[foundIdx],
+        ...expenseData
+      };
+      return mockExpenses[foundIdx];
+    }
+    throw new Error('Expense not found');
+  }
+
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('expenses')
+      .update(expenseData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Failed to update expense');
+    }
+
+    revalidatePath('/dashboard/expenses');
+    revalidatePath('/dashboard');
+    return data as Expense;
+  } catch (err) {
+    console.error('Error updating expense:', err);
+    throw err;
+  }
+}
+
+export async function deleteExpenseAction(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) {
+    const foundIdx = mockExpenses.findIndex(e => e.id === id);
+    if (foundIdx !== -1) {
+      mockExpenses.splice(foundIdx, 1);
+    }
+    revalidatePath('/dashboard/expenses');
+    revalidatePath('/dashboard');
+    return true;
+  }
+
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+
+    if (error) {
+      console.error('Error deleting expense from DB:', error);
+      return false;
+    }
+
+    revalidatePath('/dashboard/expenses');
+    revalidatePath('/dashboard');
+    return true;
+  } catch (err) {
+    console.error('Exception deleting expense:', err);
     return false;
   }
 }

@@ -59,3 +59,13 @@ export interface DashboardStats {
   paidCount: number;
   overdueCount: number;
 }
+
+export interface Expense {
+  id: string;
+  company_id: string;
+  description: string;
+  amount: number;
+  date: string;
+  category: string | null;
+  created_at?: string;
+}

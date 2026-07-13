@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, X, TrendingDown } from 'lucide-react';
 import { clsx } from 'clsx';
+import { createClient } from '@/lib/supabase/client';
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -20,9 +21,24 @@ export default function MobileNav({
 }: MobileNavProps) {
   const pathname = usePathname();
 
+  const handleLogout = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const isSupabaseConfigured = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    if (isSupabaseConfigured) {
+      try {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error('Error logging out:', err);
+      }
+    }
+    window.location.href = '/login';
+  };
+
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Factures', href: '/dashboard/invoices', icon: FileText },
+    { name: 'Dépenses', href: '/dashboard/expenses', icon: TrendingDown },
     { name: 'Clients', href: '/dashboard/clients', icon: Users },
     { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
   ];
@@ -97,14 +113,16 @@ export default function MobileNav({
             </div>
           </div>
           
-          <Link
-            href="/login"
-            onClick={onClose}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-950/20 hover:text-rose-300 transition-colors"
+          <button
+            onClick={(e) => {
+              onClose();
+              handleLogout(e);
+            }}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-rose-400 hover:bg-rose-950/20 hover:text-rose-300 transition-colors w-full text-left"
           >
             <LogOut className="h-5 w-5" />
             Déconnexion
-          </Link>
+          </button>
         </div>
       </div>
     </div>

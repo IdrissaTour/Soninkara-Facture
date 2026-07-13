@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { Building, Phone, Mail, MapPin, Camera, Save, Receipt, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { mockCompany } from '@/lib/mock-data';
 
 export default function OnboardingPage() {
-  const router = useRouter();
-  const isSupabase = typeof window !== 'undefined' && !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const isSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');

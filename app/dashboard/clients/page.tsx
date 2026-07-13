@@ -8,8 +8,7 @@ import Link from 'next/link';
 import { getClients, createClientAction, updateClientAction, deleteClientAction } from '@/lib/actions/db';
 
 export default function ClientsPage() {
-  const isSupabase = typeof window !== 'undefined' && !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  const [clients, setClients] = useState<Client[]>(isSupabase ? [] : mockClients);
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);

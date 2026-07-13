@@ -1,4 +1,4 @@
-import { Client, Invoice, InvoiceItem, Company } from './types';
+import { Client, Invoice, InvoiceItem, Company, Expense } from './types';
 
 export const mockCompany: Company = {
   id: 'comp-1',
@@ -160,5 +160,53 @@ export const mockInvoices: Invoice[] = [
     total: 413000,
     notes: null,
     client: mockClients[0]
+  }
+];
+
+export const mockExpenses: Expense[] = [
+  {
+    id: 'exp-1',
+    company_id: 'comp-1',
+    description: 'Loyer mensuel bureau Plateau',
+    amount: 350000,
+    date: '2026-05-02',
+    category: 'Loyer',
+    created_at: '2026-05-02T10:00:00Z'
+  },
+  {
+    id: 'exp-2',
+    company_id: 'comp-1',
+    description: 'Abonnement Internet Orange Fibre',
+    amount: 35000,
+    date: '2026-05-05',
+    category: 'Télécoms',
+    created_at: '2026-05-05T11:00:00Z'
+  },
+  {
+    id: 'exp-3',
+    company_id: 'comp-1',
+    description: 'Achat de fournitures et papeterie',
+    amount: 15000,
+    date: '2026-05-12',
+    category: 'Fournitures',
+    created_at: '2026-05-12T09:30:00Z'
+  },
+  {
+    id: 'exp-4',
+    company_id: 'comp-1',
+    description: 'Serveurs AWS et hébergement Cloud',
+    amount: 75000,
+    date: '2026-05-18',
+    category: 'Logiciels & Cloud',
+    created_at: '2026-05-18T15:45:00Z'
+  },
+  {
+    id: 'exp-5',
+    company_id: 'comp-1',
+    description: 'Indemnité mensuelle stagiaire développement',
+    amount: 150000,
+    date: '2026-05-25',
+    category: 'Salaires',
+    created_at: '2026-05-25T17:00:00Z'
   }
 ];

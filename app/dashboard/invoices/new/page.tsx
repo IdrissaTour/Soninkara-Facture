@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send, Mic, Loader2, X } from 'lucide-react';
 import { calculateInvoiceTotals, formatFCFA } from '@/lib/utils/invoice';
 import { Client } from '@/lib/types';
 import { getClients, createInvoiceAction, getInvoices } from '@/lib/actions/db';
+import { transcribeVoiceInvoice } from '@/lib/actions/voice';
 
 interface FormItem {
   description: string;
@@ -29,11 +30,163 @@ export default function NewInvoicePage() {
   });
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState('');
+  const [applyTax, setApplyTax] = useState(true);
 
   // Dynamic items lines state
   const [items, setItems] = useState<FormItem[]>([
     { description: '', quantity: '1', unit_price: '0' }
   ]);
+
+  // Voice Assistant states
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [voiceError, setVoiceError] = useState('');
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper helper to convert Blob to Base64
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          const base64data = reader.result.split(',')[1];
+          resolve(base64data);
+        } else {
+          reject(new Error("Failed to convert blob to base64"));
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // Stop recording. 'save' indicates whether to process or discard
+  const stopRecording = (save: boolean) => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    setIsRecording(false);
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      if (!save) {
+        audioChunksRef.current = [];
+      }
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  // Start voice recording
+  const startRecording = async () => {
+    setVoiceError('');
+    audioChunksRef.current = [];
+    setRecordingDuration(0);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/mp4';
+        }
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/ogg';
+        }
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = ''; // Let browser decide
+        }
+      }
+
+      const options = mimeType ? { mimeType } : undefined;
+      const recorder = new MediaRecorder(stream, options);
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (audioChunksRef.current.length === 0) return;
+        
+        setIsProcessing(true);
+        try {
+          const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+          const base64 = await blobToBase64(audioBlob);
+          const detectedMime = recorder.mimeType || 'audio/webm';
+          
+          const result = await transcribeVoiceInvoice(base64, detectedMime);
+          
+          if (result) {
+            // 1. Match client if detected
+            if (result.clientName) {
+              const matched = clients.find(c => 
+                c.name.toLowerCase().includes(result.clientName.toLowerCase()) ||
+                result.clientName.toLowerCase().includes(c.name.toLowerCase())
+              );
+              if (matched) {
+                setClientId(matched.id);
+              }
+            }
+
+            // 2. Set invoice items if detected
+            if (result.items && result.items.length > 0) {
+              const formatted: FormItem[] = result.items.map((item: any) => ({
+                description: item.description || 'Article dicté',
+                quantity: String(item.quantity ?? 1),
+                unit_price: String(item.price ?? 0)
+              }));
+              setItems(formatted);
+            }
+
+            setShowVoiceModal(false);
+          } else {
+            throw new Error("L'IA n'a retourné aucune donnée exploitable.");
+          }
+        } catch (err) {
+          console.error("Voice processing error:", err);
+          const msg = err instanceof Error ? err.message : "Erreur de traitement de la note vocale.";
+          setVoiceError(msg);
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start(250);
+      setIsRecording(true);
+
+      timerRef.current = setInterval(() => {
+        setRecordingDuration(prev => {
+          if (prev >= 30) {
+            stopRecording(true);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+
+    } catch (err) {
+      console.error("Microphone access error:", err);
+      setVoiceError("Impossible d'accéder au microphone. Veuillez accorder les permissions nécessaires.");
+    }
+  };
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -77,7 +230,9 @@ export default function NewInvoicePage() {
     quantity: parseFloat(item.quantity) || 0,
     unit_price: parseFloat(item.unit_price) || 0
   }));
-  const { subtotal, tva, total } = calculateInvoiceTotals(parsedItemsForCalculation);
+  const { subtotal, tva: calculatedTva, total: calculatedTotal } = calculateInvoiceTotals(parsedItemsForCalculation);
+  const tva = applyTax ? calculatedTva : 0;
+  const total = applyTax ? calculatedTotal : subtotal;
 
   const handleSave = async (status: 'draft' | 'sent') => {
     setFormError('');
@@ -142,7 +297,7 @@ export default function NewInvoicePage() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header breadcrumb */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <Link
             href="/dashboard/invoices"
@@ -153,6 +308,17 @@ export default function NewInvoicePage() {
           </Link>
           <h2 className="text-xl font-bold text-slate-900">Émettre une nouvelle facture {invoiceNumber && `(${invoiceNumber})`}</h2>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setVoiceError('');
+            setShowVoiceModal(true);
+          }}
+          className="flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-2.5 text-xs font-bold text-brand-600 hover:bg-brand-100 transition-all hover:scale-102 self-start sm:self-auto shrink-0 shadow-sm"
+        >
+          <Mic className="h-4.5 w-4.5 text-brand-600" />
+          Créer par la voix
+        </button>
       </div>
 
       {formError && (
@@ -325,6 +491,22 @@ export default function NewInvoicePage() {
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-premium">
               <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-3 mb-4">Résumé financier</h3>
               
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 mb-4">
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-800">Appliquer la TVA (18%)</span>
+                  <span className="text-[10px] text-slate-400 font-semibold">Exonérer si décoché</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={applyTax} 
+                    onChange={(e) => setApplyTax(e.target.checked)} 
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                </label>
+              </div>
+
               <div className="space-y-3.5 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>Sous-total HT</span>
@@ -353,7 +535,7 @@ export default function NewInvoicePage() {
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-md shadow-brand-600/10"
                 >
                   <Send className="h-4 w-4" />
-                  Envoyer la facture
+                  Enregistrer
                 </button>
                 <button
                   type="button"
@@ -374,6 +556,121 @@ export default function NewInvoicePage() {
           </div>
         </div>
       </form>
+
+      {/* Voice Assistant Modal */}
+      {showVoiceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => {
+            if (!isRecording && !isProcessing) setShowVoiceModal(false);
+          }} />
+          
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-150 animate-scaleIn">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                  <Mic className="h-4.5 w-4.5" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Assistant Vocal IA</h3>
+              </div>
+              <button
+                onClick={() => {
+                  stopRecording(false);
+                  setShowVoiceModal(false);
+                }}
+                disabled={isProcessing}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-30"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="py-6 flex flex-col items-center justify-center text-center space-y-5">
+              {isProcessing ? (
+                <>
+                  <div className="relative flex items-center justify-center">
+                    <div className="h-16 w-16 animate-spin rounded-full border-4 border-slate-100 border-t-brand-600"></div>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">Transcription et analyse en cours...</h4>
+                    <p className="text-[10px] text-slate-400 mt-1 max-w-[280px] mx-auto">
+                      L&apos;IA extrait le client et les lignes de facture (quantités, prix unitaires, articles).
+                    </p>
+                  </div>
+                </>
+              ) : isRecording ? (
+                <>
+                  {/* Pulsating Record Button */}
+                  <div className="relative flex items-center justify-center h-24 w-24">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-rose-400/30 opacity-75 animate-ping"></span>
+                    <span className="absolute inline-flex h-20 w-20 rounded-full bg-rose-500/20 opacity-90 animate-pulse"></span>
+                    <button
+                      onClick={() => stopRecording(true)}
+                      className="relative flex h-16 w-16 items-center justify-center rounded-full bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition-all hover:scale-105"
+                    >
+                      <div className="h-5 w-5 bg-white rounded-sm" />
+                    </button>
+                  </div>
+
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-[10px] font-bold text-rose-600 border border-rose-100 mb-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-600 animate-ping" />
+                      Enregistrement : 00:{String(recordingDuration).padStart(2, '0')} / 00:30
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-800">Je vous écoute...</h4>
+                    <p className="text-[10px] text-slate-400 mt-1.5 max-w-[280px] mx-auto leading-relaxed">
+                      Parlez naturellement en Français, Wolof, Bambara, Swahili, etc.<br />
+                      Ex: <i>&quot;Facture pour Amadou, 5 sacs de ciment à 5000 FCFA chacun.&quot;</i>
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 w-full pt-4 border-t border-slate-100">
+                    <button
+                      onClick={() => stopRecording(false)}
+                      className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => stopRecording(true)}
+                      className="flex-1 rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors"
+                    >
+                      Terminer & Analyser
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 border border-brand-100 text-brand-600 shadow-md">
+                    <Mic className="h-8 w-8 animate-bounce" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">Générer la facture par la voix</h4>
+                    <p className="text-[10px] text-slate-400 mt-1 max-w-[280px] mx-auto leading-relaxed">
+                      Dictez le client, les articles, les prix et les quantités pour créer la facture en 1 clic.
+                    </p>
+                  </div>
+
+                  {voiceError && (
+                    <div className="w-full text-left rounded-xl bg-rose-50 border border-rose-100 p-3 text-[10px] text-rose-600 font-semibold">
+                      {voiceError}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={startRecording}
+                    className="w-full rounded-xl bg-brand-600 py-3 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-lg shadow-brand-600/10 flex items-center justify-center gap-2"
+                  >
+                    <Mic className="h-4.5 w-4.5" />
+                    Commencer à parler
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

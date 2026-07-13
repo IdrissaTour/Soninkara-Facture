@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, Tag, FileText, X, Trash2, Edit } from 'lucide-react';
-import { mockExpenses } from '@/lib/mock-data';
+import { Plus, Search, Calendar, Tag, X, Trash2, Edit } from 'lucide-react';
 import { Expense } from '@/lib/types';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { getExpenses, createExpenseAction, deleteExpenseAction, updateExpenseAction } from '@/lib/actions/db';

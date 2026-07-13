@@ -1,6 +1,9 @@
 'use server';
 
-export async function transcribeVoiceInvoice(audioBase64: string, mimeType: string): Promise<any> {
+export async function transcribeVoiceInvoice(
+  audioBase64: string, 
+  mimeType: string
+): Promise<{ clientName?: string; items?: Array<{ description?: string; quantity?: number; price?: number }> }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Clé API Gemini manquante. Veuillez ajouter GEMINI_API_KEY=votre_cle dans votre fichier .env.local.");

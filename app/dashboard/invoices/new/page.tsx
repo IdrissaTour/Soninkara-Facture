@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send, Mic, Loader2, X } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send, Mic, X } from 'lucide-react';
 import { calculateInvoiceTotals, formatFCFA } from '@/lib/utils/invoice';
 import { Client } from '@/lib/types';
 import { getClients, createInvoiceAction, getInvoices } from '@/lib/actions/db';
@@ -140,7 +140,7 @@ export default function NewInvoicePage() {
 
             // 2. Set invoice items if detected
             if (result.items && result.items.length > 0) {
-              const formatted: FormItem[] = result.items.map((item: any) => ({
+              const formatted: FormItem[] = result.items.map(item => ({
                 description: item.description || 'Article dicté',
                 quantity: String(item.quantity ?? 1),
                 unit_price: String(item.price ?? 0)

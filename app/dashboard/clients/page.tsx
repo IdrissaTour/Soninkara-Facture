@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Search, User, Mail, Phone, MapPin, X, ArrowUpRight, Edit, Trash2 } from 'lucide-react';
-import { mockClients } from '@/lib/mock-data';
 import { Client } from '@/lib/types';
 import Link from 'next/link';
 import { getClients, createClientAction, updateClientAction, deleteClientAction } from '@/lib/actions/db';

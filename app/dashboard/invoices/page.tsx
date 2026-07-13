@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Filter, Plus, FileText, ArrowUpDown } from 'lucide-react';
-import { mockInvoices } from '@/lib/mock-data';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { InvoiceStatus, Invoice } from '@/lib/types';
 import { clsx } from 'clsx';

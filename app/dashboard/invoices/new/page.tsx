@@ -129,9 +129,10 @@ export default function NewInvoicePage() {
           if (result) {
             // 1. Match client if detected
             if (result.clientName) {
+              const nameToMatch = result.clientName.toLowerCase();
               const matched = clients.find(c => 
-                c.name.toLowerCase().includes(result.clientName.toLowerCase()) ||
-                result.clientName.toLowerCase().includes(c.name.toLowerCase())
+                c.name.toLowerCase().includes(nameToMatch) ||
+                nameToMatch.includes(c.name.toLowerCase())
               );
               if (matched) {
                 setClientId(matched.id);

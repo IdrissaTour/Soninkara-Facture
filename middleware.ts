@@ -46,8 +46,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  function isUserAdmin(email?: string): boolean {
+    if (!email) return false;
+    const cleanEmail = email.trim().toLowerCase();
+    const adminEmails = [
+      'soninkaradigital@gmail.com',
+      'idrissa@example.com',
+      'amadou@example.com',
+      'toureidi321@gmail.com',
+      'entrepreneur@teranga.sn',
+      'contact@soninkaratech.sn'
+    ];
+    return adminEmails.includes(cleanEmail) || 
+           cleanEmail.endsWith('@soninkara.sn') || 
+           cleanEmail.endsWith('@soninkara-facture.sn');
+  }
+
   if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const redirectPath = isUserAdmin(user.email) ? '/dashboard/admin' : '/dashboard';
+    return NextResponse.redirect(new URL(redirectPath, request.url));
   }
 
   return response;

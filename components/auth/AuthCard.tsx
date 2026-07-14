@@ -96,6 +96,19 @@ export default function AuthCard() {
       // Check if user has a company configured
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const cleanEmail = (user.email || '').trim().toLowerCase();
+        const adminList = [
+          'soninkaradigital@gmail.com',
+          'idrissa@example.com',
+          'amadou@example.com',
+          'toureidi321@gmail.com',
+          'entrepreneur@teranga.sn',
+          'contact@soninkaratech.sn'
+        ];
+        const isAdmin = adminList.includes(cleanEmail) || 
+                        cleanEmail.endsWith('@soninkara.sn') || 
+                        cleanEmail.endsWith('@soninkara-facture.sn');
+
         const { data: companies, error: dbError } = await supabase
           .from('companies')
           .select('id')
@@ -104,7 +117,9 @@ export default function AuthCard() {
 
         setLoading(false);
 
-        if (dbError || !companies || companies.length === 0) {
+        if (isAdmin) {
+          window.location.href = '/dashboard/admin';
+        } else if (dbError || !companies || companies.length === 0) {
           window.location.href = '/onboarding';
         } else {
           window.location.href = '/dashboard';

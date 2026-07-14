@@ -28,7 +28,10 @@ export default function DashboardLayout({
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       const isSupabase = !!(supabaseUrl && supabaseAnonKey);
 
-      if (isSupabase && !company) {
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+      const isAdminRoute = pathname.startsWith('/dashboard/admin');
+
+      if (isSupabase && !company && !adminActive && !isAdminRoute) {
         router.push('/onboarding');
         return;
       }

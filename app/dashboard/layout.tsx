@@ -6,6 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import TopBar from '@/components/layout/TopBar';
 import MobileNav from '@/components/layout/MobileNav';
 import { getCompany } from '@/lib/actions/db';
+import { checkAdminStatus } from '@/lib/actions/admin';
 
 export default function DashboardLayout({
   children,
@@ -16,10 +17,13 @@ export default function DashboardLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [companyName, setCompanyName] = useState('Soninkara Tech Solutions');
   const [userEmail, setUserEmail] = useState('entrepreneur@teranga.sn');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       const company = await getCompany();
+      const adminActive = await checkAdminStatus();
+      setIsAdmin(adminActive);
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       const isSupabase = !!(supabaseUrl && supabaseAnonKey);
@@ -52,7 +56,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Sidebar for Desktop */}
-      <Sidebar companyName={companyName} userEmail={userEmail} />
+      <Sidebar companyName={companyName} userEmail={userEmail} isAdmin={isAdmin} />
 
       {/* Slide-out Sidebar for Mobile */}
       <MobileNav
@@ -60,6 +64,7 @@ export default function DashboardLayout({
         onClose={() => setMobileMenuOpen(false)}
         companyName={companyName}
         userEmail={userEmail}
+        isAdmin={isAdmin}
       />
 
       {/* Main Content Area */}

@@ -2,16 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, TrendingDown } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, TrendingDown, Shield } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/lib/supabase/client';
 
 interface SidebarProps {
   companyName?: string;
   userEmail?: string;
+  isAdmin?: boolean;
 }
 
-export default function Sidebar({ companyName = 'Soninkara Facture', userEmail = 'entrepreneur@teranga.sn' }: SidebarProps) {
+export default function Sidebar({ 
+  companyName = 'Soninkara Facture', 
+  userEmail = 'entrepreneur@teranga.sn',
+  isAdmin = false 
+}: SidebarProps) {
   const pathname = usePathname();
 
   const handleLogout = async (e: React.MouseEvent) => {
@@ -35,6 +40,10 @@ export default function Sidebar({ companyName = 'Soninkara Facture', userEmail =
     { name: 'Clients', href: '/dashboard/clients', icon: Users },
     { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
   ];
+
+  if (isAdmin) {
+    navigation.push({ name: 'Administration', href: '/dashboard/admin', icon: Shield });
+  }
 
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-800 bg-slate-950 text-slate-200 lg:flex z-20">

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, X, TrendingDown } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, X, TrendingDown, Shield } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/lib/supabase/client';
 
@@ -11,6 +11,7 @@ interface MobileNavProps {
   onClose: () => void;
   companyName?: string;
   userEmail?: string;
+  isAdmin?: boolean;
 }
 
 export default function MobileNav({
@@ -18,6 +19,7 @@ export default function MobileNav({
   onClose,
   companyName = 'Soninkara Facture',
   userEmail = 'entrepreneur@teranga.sn',
+  isAdmin = false,
 }: MobileNavProps) {
   const pathname = usePathname();
 
@@ -42,6 +44,10 @@ export default function MobileNav({
     { name: 'Clients', href: '/dashboard/clients', icon: Users },
     { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
   ];
+
+  if (isAdmin) {
+    navigation.push({ name: 'Administration', href: '/dashboard/admin', icon: Shield });
+  }
 
   if (!isOpen) return null;
 

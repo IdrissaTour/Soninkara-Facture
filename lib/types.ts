@@ -69,3 +69,16 @@ export interface Expense {
   category: string | null;
   created_at?: string;
 }
+
+export interface CompanySummary {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  owner_id: string;
+  created_at: string;
+  client_count: number;
+  invoice_count: number;
+  total_invoiced: number;
+}

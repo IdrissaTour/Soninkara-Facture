@@ -19,19 +19,46 @@ import {
   Building,
   Key
 } from 'lucide-react';
-import { getCompaniesSummaryAdmin } from '@/lib/actions/admin';
+import { getCompaniesSummaryAdmin, checkAdminStatus, verifyAdminPasscode } from '@/lib/actions/admin';
 import { CompanySummary } from '@/lib/types';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [summaries, setSummaries] = useState<CompanySummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<CompanySummary | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Double security states
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [passcode, setPasscode] = useState('');
+  const [passcodeError, setPasscodeError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
+  // Step 1: Verify user email is in the admin whitelist
+  useEffect(() => {
+    async function checkAuth() {
+      setCheckingAdmin(true);
+      setError(null);
+      try {
+        const isAdminUser = await checkAdminStatus();
+        if (!isAdminUser) {
+          setError('Non autorisé : Droits administrateur requis.');
+        }
+      } catch {
+        setError("Erreur d'authentification administrateur.");
+      } finally {
+        setCheckingAdmin(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  // Step 2: Load actual platform summaries (only called after successful passcode unlock)
   async function loadAdminData() {
     setLoading(true);
     setError(null);
@@ -46,9 +73,26 @@ export default function AdminDashboardPage() {
     }
   }
 
-  useEffect(() => {
-    loadAdminData();
-  }, []);
+  // Handle double security passcode submission
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifying(true);
+    setPasscodeError('');
+    try {
+      const isValid = await verifyAdminPasscode(passcode);
+      if (isValid) {
+        setIsUnlocked(true);
+        // Load data on successful unlock
+        await loadAdminData();
+      } else {
+        setPasscodeError('Mot de passe de sécurité incorrect.');
+      }
+    } catch {
+      setPasscodeError('Erreur de validation.');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -75,7 +119,17 @@ export default function AdminDashboardPage() {
   const totalInvoices = summaries.reduce((acc, curr) => acc + curr.invoice_count, 0);
   const totalInvoicedAmount = summaries.reduce((acc, curr) => acc + curr.total_invoiced, 0);
 
-  // If there's an authentication error (Access Denied)
+  // 1. Loading check while verifying user profile
+  if (checkingAdmin) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center text-center px-4 animate-fadeIn">
+        <RefreshCw className="h-8 w-8 animate-spin text-brand-600 mb-3" />
+        <p className="text-sm font-semibold text-slate-600">{"Vérification des autorisations administrateur..."}</p>
+      </div>
+    );
+  }
+
+  // 2. Email Verification Error (Not an Admin)
   if (error && error.includes('Non autorisé')) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center text-center px-4 animate-fadeIn">
@@ -99,6 +153,68 @@ export default function AdminDashboardPage() {
     );
   }
 
+  // 3. Lock Screen (Authorized admin email, but needs password entry)
+  if (!isUnlocked) {
+    return (
+      <div className="flex min-h-[75vh] flex-col items-center justify-center px-4 animate-fadeIn">
+        <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200/80 p-8 shadow-premium text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 mb-6 mx-auto border border-brand-100">
+            <Shield className="h-6 w-6" />
+          </div>
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-900 mb-2 font-sans">
+            Double Authentification Admin
+          </h2>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto mb-6">
+            {"Saisissez le mot de passe de sécurité de la console développeur pour déverrouiller l'accès aux comptes de la plateforme."}
+          </p>
+
+          <form onSubmit={handleUnlock} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                placeholder="Mot de passe de sécurité"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-brand-500 focus:outline-none transition-colors text-center font-medium placeholder:font-normal"
+                required
+                autoFocus
+              />
+              {passcodeError && (
+                <p className="text-xs font-semibold text-rose-500 mt-2 text-center animate-pulse">
+                  {passcodeError}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={verifying}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white hover:bg-brand-700 transition-all shadow-md shadow-brand-600/10 disabled:opacity-50"
+              >
+                {verifying ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Key className="h-4 w-4" />
+                )}
+                {"Déverrouiller la Console"}
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="w-full inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
+              >
+                {"Retour"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Main Console Panel (Unlocked & Active)
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Header section */}

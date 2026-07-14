@@ -156,3 +156,11 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
     throw err;
   }
 }
+
+/**
+ * Verifies the administrator passcode
+ */
+export async function verifyAdminPasscode(passcode: string): Promise<boolean> {
+  const configuredPasscode = process.env.ADMIN_PASSCODE || 'Soninkara2026!';
+  return passcode === configuredPasscode;
+}

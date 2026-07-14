@@ -11,7 +11,7 @@ function isSupabaseConfigured() {
 // Configured list of admin emails
 export const ADMIN_EMAILS = (
   process.env.NEXT_PUBLIC_ADMIN_EMAILS || 
-  'idrissa@example.com,amadou@example.com,toureidi321@gmail.com,entrepreneur@teranga.sn,contact@soninkaratech.sn'
+  'soninkaradigital@gmail.com,idrissa@example.com,amadou@example.com,toureidi321@gmail.com,entrepreneur@teranga.sn,contact@soninkaratech.sn'
 )
   .split(',')
   .map((email) => email.trim().toLowerCase());
@@ -161,6 +161,6 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
  * Verifies the administrator passcode
  */
 export async function verifyAdminPasscode(passcode: string): Promise<boolean> {
-  const configuredPasscode = process.env.ADMIN_PASSCODE || 'Soninkara2026!';
+  const configuredPasscode = process.env.ADMIN_PASSCODE || '73089601Id@';
   return passcode === configuredPasscode;
 }

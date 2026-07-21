@@ -435,39 +435,204 @@ export default function AuthCard() {
 
               {/* Tab Selector */}
               {activeTab !== 'forgot-password' && (
-                <div className="space-y-4">
-                  <div className="bg-slate-100 p-1.5 rounded-2xl flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleTabChange('login')}
-                      className={`flex-1 text-center py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
-                        activeTab === 'login'
-                          ? 'bg-white text-slate-900 shadow-sm border border-slate-200/40'
-                          : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      Connexion
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTabChange('signup')}
-                      className={`flex-1 text-center py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
-                        activeTab === 'signup'
-                          ? 'bg-white text-slate-900 shadow-sm border border-slate-200/40'
-                          : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                    >
-                      Créer un compte
-                    </button>
+                <div className="bg-slate-100 p-1.5 rounded-2xl flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('login')}
+                    className={`flex-1 text-center py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
+                      activeTab === 'login'
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/40'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Connexion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('signup')}
+                    className={`flex-1 text-center py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
+                      activeTab === 'signup'
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/40'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Créer un compte
+                  </button>
+                </div>
+              )}
+
+              {/* Alert Blocks */}
+              {error && (
+                <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex gap-3 text-xs text-rose-600 font-medium animate-fadeIn">
+                  <AlertCircle className="h-4.5 w-4.5 shrink-0 text-rose-500" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {success && (
+                <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex gap-3 text-xs text-emerald-700 font-semibold animate-fadeIn">
+                  <CheckCircle className="h-4.5 w-4.5 shrink-0 text-emerald-600" />
+                  <span>{success}</span>
+                </div>
+              )}
+
+              {/* Form Render (Login) */}
+              {activeTab === 'login' && (
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Adresse email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
+                      <input
+                        type="email"
+                        placeholder="nom@entreprise.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Mot de passe</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetMessages();
+                          setActiveTab('forgot-password');
+                        }}
+                        className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+                      >
+                        Mot de passe oublié ?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
+                      <input
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-4 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-lg shadow-brand-600/15 disabled:opacity-50 hover:-translate-y-0.5"
+                  >
+                    {loading ? 'Connexion en cours...' : 'Se connecter à mon espace'}
+                    {!loading && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </form>
+              )}
+
+              {/* Form Render (Signup) */}
+              {activeTab === 'signup' && (
+                <form onSubmit={handleSignup} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Nom complet / Pseudo</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Ex: Idrissa Touré"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Adresse email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
+                      <input
+                        type="email"
+                        placeholder="nom@entreprise.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Mot de passe</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
+                      <input
+                        type="password"
+                        placeholder="Créer un mot de passe (min 6 caractères)"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
+                        minLength={6}
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Confirmer le mot de passe</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
+                      <input
+                        type="password"
+                        placeholder="Confirmer votre mot de passe"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
+                        minLength={6}
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-4 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-lg shadow-brand-600/15 disabled:opacity-50 hover:-translate-y-0.5"
+                  >
+                    {loading ? 'Création de compte...' : 'Créer mon compte maintenant'}
+                    {!loading && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </form>
+              )}
+
+              {/* Google OAuth Option (Placed cleanly at bottom of forms) */}
+              {activeTab !== 'forgot-password' && (
+                <div className="space-y-3 pt-2">
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200/80" />
+                    </div>
+                    <span className="relative bg-slate-50/90 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      OU
+                    </span>
                   </div>
 
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-slate-200/90 bg-white py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-all shadow-sm hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
                   >
-                    <svg className="h-4.5 w-4.5" viewBox="0 0 24 24">
+                    <svg width="18" height="18" viewBox="0 0 24 24" className="h-4.5 w-4.5 shrink-0">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -487,15 +652,6 @@ export default function AuthCard() {
                     </svg>
                     <span>Continuer avec Google</span>
                   </button>
-
-                  <div className="relative flex items-center justify-center pt-1">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200/80" />
-                    </div>
-                    <span className="relative bg-slate-50/90 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      ou avec votre email
-                    </span>
-                  </div>
                 </div>
               )}
 

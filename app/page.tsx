@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Receipt, Check, ArrowRight, ShieldCheck, Zap, Download, Users, CheckCircle2, TrendingUp, Store } from 'lucide-react';
+import { Receipt, Check, ArrowRight, ShieldCheck, Zap, Download, Users, TrendingUp, Store } from 'lucide-react';
 import { formatFCFA } from '@/lib/utils/invoice';
 import { clsx } from 'clsx';
 

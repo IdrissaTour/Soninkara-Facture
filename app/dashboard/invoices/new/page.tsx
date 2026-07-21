@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send, Mic, X } from 'lucide-react';
 import { calculateInvoiceTotals, formatFCFA } from '@/lib/utils/invoice';
 import { Client } from '@/lib/types';
 import { getClients, createInvoiceAction, getInvoices } from '@/lib/actions/db';
-import { transcribeVoiceInvoice } from '@/lib/actions/voice';
 
 import BoutonVocalFacture, { ExtractedFacture } from '@/components/voice/BoutonVocalFacture';
 

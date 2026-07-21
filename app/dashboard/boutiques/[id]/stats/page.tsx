@@ -15,11 +15,8 @@ import {
   Download,
   Printer,
   Loader2,
-  Building2,
   Store,
-  MapPin,
-  Phone,
-  Mail
+  MapPin
 } from 'lucide-react';
 import { getBoutiqueStats, getProduits, getBoutiqueById } from '@/lib/actions/boutiques';
 import { getExpenses, getCompany } from '@/lib/actions/db';

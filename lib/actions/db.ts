@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { mockCompany, mockClients, mockInvoices, mockInvoiceItems, mockExpenses } from '@/lib/mock-data';
+import { mockCompany, mockClients, mockInvoices, mockInvoiceItems, mockExpenses, mockBoutiques } from '@/lib/mock-data';
 import { Company, Client, Invoice, InvoiceItem, InvoiceStatus, Expense } from '@/lib/types';
 
 // Helper to check if Supabase is fully configured
@@ -569,7 +569,10 @@ export async function deleteClientAction(id: string): Promise<boolean> {
 
 export async function getExpenses(): Promise<Expense[]> {
   if (!isSupabaseConfigured()) {
-    return mockExpenses;
+    return mockExpenses.map(exp => ({
+      ...exp,
+      boutique: mockBoutiques.find(b => b.id === exp.boutique_id) || null
+    }));
   }
 
   try {
@@ -588,7 +591,10 @@ export async function getExpenses(): Promise<Expense[]> {
 
     const { data, error } = await supabase
       .from('expenses')
-      .select('*')
+      .select(`
+        *,
+        boutique:boutiques(*)
+      `)
       .eq('company_id', company.id)
       .order('date', { ascending: false });
 
@@ -596,19 +602,20 @@ export async function getExpenses(): Promise<Expense[]> {
       return [];
     }
 
-    return data as Expense[];
+    return data as unknown as Expense[];
   } catch {
     return [];
   }
 }
 
-export async function createExpenseAction(expenseData: Omit<Expense, 'id' | 'company_id'>): Promise<Expense> {
+export async function createExpenseAction(expenseData: Omit<Expense, 'id' | 'company_id' | 'boutique'>): Promise<Expense> {
   if (!isSupabaseConfigured()) {
     const newId = `exp-${Date.now()}`;
     const mockNewExpense: Expense = {
       ...expenseData,
       id: newId,
-      company_id: 'comp-1'
+      company_id: 'comp-1',
+      boutique: mockBoutiques.find(b => b.id === expenseData.boutique_id) || null
     };
     mockExpenses.unshift(mockNewExpense);
     return mockNewExpense;
@@ -636,7 +643,10 @@ export async function createExpenseAction(expenseData: Omit<Expense, 'id' | 'com
         ...expenseData,
         company_id: company.id
       })
-      .select()
+      .select(`
+        *,
+        boutique:boutiques(*)
+      `)
       .single();
 
     if (error || !data) {
@@ -645,20 +655,21 @@ export async function createExpenseAction(expenseData: Omit<Expense, 'id' | 'com
 
     revalidatePath('/dashboard/expenses');
     revalidatePath('/dashboard');
-    return data as Expense;
+    return data as unknown as Expense;
   } catch (err) {
     console.error('Error creating expense:', err);
     throw err;
   }
 }
 
-export async function updateExpenseAction(id: string, expenseData: Omit<Expense, 'id' | 'company_id'>): Promise<Expense> {
+export async function updateExpenseAction(id: string, expenseData: Omit<Expense, 'id' | 'company_id' | 'boutique'>): Promise<Expense> {
   if (!isSupabaseConfigured()) {
     const foundIdx = mockExpenses.findIndex(e => e.id === id);
     if (foundIdx !== -1) {
       mockExpenses[foundIdx] = {
         ...mockExpenses[foundIdx],
-        ...expenseData
+        ...expenseData,
+        boutique: mockBoutiques.find(b => b.id === expenseData.boutique_id) || null
       };
       return mockExpenses[foundIdx];
     }
@@ -671,7 +682,10 @@ export async function updateExpenseAction(id: string, expenseData: Omit<Expense,
       .from('expenses')
       .update(expenseData)
       .eq('id', id)
-      .select()
+      .select(`
+        *,
+        boutique:boutiques(*)
+      `)
       .single();
 
     if (error || !data) {
@@ -680,7 +694,7 @@ export async function updateExpenseAction(id: string, expenseData: Omit<Expense,
 
     revalidatePath('/dashboard/expenses');
     revalidatePath('/dashboard');
-    return data as Expense;
+    return data as unknown as Expense;
   } catch (err) {
     console.error('Error updating expense:', err);
     throw err;

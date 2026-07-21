@@ -51,6 +51,7 @@ export async function middleware(request: NextRequest) {
     const cleanEmail = email.trim().toLowerCase();
     const adminEmails = [
       'soninkaradigital@gmail.com',
+      'soninkaradigital+1@gmail.com',
       'idrissa@example.com',
       'amadou@example.com',
       'toureidi321@gmail.com',

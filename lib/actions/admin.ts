@@ -11,7 +11,7 @@ function isSupabaseConfigured() {
 // Configured list of admin emails
 const ADMIN_EMAILS = (
   process.env.NEXT_PUBLIC_ADMIN_EMAILS || 
-  'soninkaradigital@gmail.com,idrissa@example.com,amadou@example.com,toureidi321@gmail.com,entrepreneur@teranga.sn,contact@soninkaratech.sn'
+  'soninkaradigital@gmail.com,soninkaradigital+1@gmail.com,idrissa@example.com,amadou@example.com,toureidi321@gmail.com,entrepreneur@teranga.sn,contact@soninkaratech.sn'
 )
   .split(',')
   .map((email) => email.trim().toLowerCase());

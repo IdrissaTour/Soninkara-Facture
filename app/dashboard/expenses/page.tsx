@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, Tag, X, Trash2, Edit } from 'lucide-react';
-import { Expense } from '@/lib/types';
+import { Plus, Search, Calendar, Tag, X, Trash2, Edit, Store } from 'lucide-react';
+import { Expense, Boutique } from '@/lib/types';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { getExpenses, createExpenseAction, deleteExpenseAction, updateExpenseAction } from '@/lib/actions/db';
+import { getBoutiques } from '@/lib/actions/boutiques';
 
 const EXPENSE_CATEGORIES = [
   'Loyer',
@@ -20,7 +21,9 @@ const EXPENSE_CATEGORIES = [
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [boutiques, setBoutiques] = useState<Boutique[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [boutiqueFilter, setBoutiqueFilter] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -30,16 +33,21 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [selectedBoutiqueId, setSelectedBoutiqueId] = useState<string>('');
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await getExpenses();
-        setExpenses(data);
+        const [expData, boutData] = await Promise.all([
+          getExpenses(),
+          getBoutiques()
+        ]);
+        setExpenses(expData);
+        setBoutiques(boutData);
       } catch (err) {
-        console.error('Error loading expenses:', err);
+        console.error('Error loading expenses or boutiques:', err);
       } finally {
         setLoading(false);
       }
@@ -53,6 +61,7 @@ export default function ExpensesPage() {
     setAmount('');
     setDate(new Date().toISOString().split('T')[0]);
     setCategory(EXPENSE_CATEGORIES[0]);
+    setSelectedBoutiqueId('');
     setFormError('');
     setIsModalOpen(true);
   };
@@ -63,6 +72,7 @@ export default function ExpensesPage() {
     setAmount(String(expense.amount));
     setDate(expense.date);
     setCategory(expense.category || EXPENSE_CATEGORIES[0]);
+    setSelectedBoutiqueId(expense.boutique_id || '');
     setFormError('');
     setIsModalOpen(true);
   };
@@ -103,7 +113,8 @@ export default function ExpensesPage() {
       description,
       amount: parsedAmount,
       date,
-      category: category || null
+      category: category || null,
+      boutique_id: selectedBoutiqueId || null
     };
 
     try {
@@ -121,6 +132,7 @@ export default function ExpensesPage() {
       setAmount('');
       setDate(new Date().toISOString().split('T')[0]);
       setCategory(EXPENSE_CATEGORIES[0]);
+      setSelectedBoutiqueId('');
       setEditingExpense(null);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement de la dépense.';
@@ -131,10 +143,21 @@ export default function ExpensesPage() {
   };
 
   // Filter expenses
-  const filteredExpenses = expenses.filter(expense =>
-    expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (expense.category && expense.category.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredExpenses = expenses.filter(expense => {
+    const matchesSearch =
+      expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (expense.category && expense.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (expense.boutique && expense.boutique.nom.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesBoutique =
+      boutiqueFilter === 'all'
+        ? true
+        : boutiqueFilter === 'general'
+        ? !expense.boutique_id
+        : expense.boutique_id === boutiqueFilter;
+
+    return matchesSearch && matchesBoutique;
+  });
 
   const totalFilteredAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
@@ -144,7 +167,7 @@ export default function ExpensesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900">Registre des dépenses</h2>
-          <p className="text-xs text-slate-500">Suivez et gérez les frais de fonctionnement de votre entreprise.</p>
+          <p className="text-xs text-slate-500">Suivez et gérez les frais de fonctionnement de votre entreprise et de vos boutiques.</p>
         </div>
         <button
           onClick={handleStartAdd}
@@ -171,16 +194,35 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Search panel */}
-      <div className="relative bg-white p-4 rounded-2xl border border-slate-200/80 shadow-premium">
-        <Search className="absolute left-7 top-7.5 h-4.5 w-4.5 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Rechercher par description, catégorie..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors"
-        />
+      {/* Search and Filter Panel */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-premium flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Rechercher par description, catégorie, boutique..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Store className="h-4 w-4 text-slate-400 shrink-0" />
+          <select
+            value={boutiqueFilter}
+            onChange={(e) => setBoutiqueFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors"
+          >
+            <option value="all">Toutes les dépenses</option>
+            <option value="general">Dépenses Générales (Entreprise)</option>
+            {boutiques.map(b => (
+              <option key={b.id} value={b.id}>
+                Boutique: {b.nom}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Expenses Table */}
@@ -196,9 +238,10 @@ export default function ExpensesPage() {
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50/50">
                   <th className="py-4 px-6">Description</th>
-                  <th className="py-4 px-6 w-40">Catégorie</th>
-                  <th className="py-4 px-6 w-40">Date</th>
-                  <th className="py-4 px-6 text-right w-44">Montant</th>
+                  <th className="py-4 px-6 w-36">Affectation</th>
+                  <th className="py-4 px-6 w-36">Catégorie</th>
+                  <th className="py-4 px-6 w-36">Date</th>
+                  <th className="py-4 px-6 text-right w-40">Montant</th>
                   <th className="py-4 px-6 text-center w-28">Actions</th>
                 </tr>
               </thead>
@@ -206,6 +249,18 @@ export default function ExpensesPage() {
                 {filteredExpenses.map((expense) => (
                   <tr key={expense.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-4.5 px-6 font-semibold text-slate-800">{expense.description}</td>
+                    <td className="py-4.5 px-6">
+                      {expense.boutique ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 text-[10px] font-bold text-brand-700">
+                          <Store className="h-3 w-3 text-brand-600 shrink-0" />
+                          {expense.boutique.nom}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">
+                          Générale
+                        </span>
+                      )}
+                    </td>
                     <td className="py-4.5 px-6">
                       <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">
                         {expense.category || 'Autre'}
@@ -249,7 +304,7 @@ export default function ExpensesPage() {
           </div>
           <h4 className="text-sm font-bold text-slate-800">Aucune dépense trouvée</h4>
           <p className="text-xs text-slate-400 max-w-xs mt-1">
-            Enregistrez les factures d&apos;achat, abonnements ou salaires payés par votre entreprise.
+            Enregistrez les factures d&apos;achat, abonnements ou salaires payés par votre entreprise ou pour vos boutiques.
           </p>
           <button
             onClick={handleStartAdd}
@@ -260,7 +315,7 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Add Expense Modal */}
+      {/* Add / Edit Expense Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
@@ -295,6 +350,22 @@ export default function ExpensesPage() {
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Affectation à une Boutique</label>
+                <select
+                  value={selectedBoutiqueId}
+                  onChange={(e) => setSelectedBoutiqueId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-colors"
+                >
+                  <option value="">Dépense générale (Toute l&apos;entreprise)</option>
+                  {boutiques.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.nom}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

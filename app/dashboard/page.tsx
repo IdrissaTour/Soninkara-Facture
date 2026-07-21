@@ -6,13 +6,15 @@ import { ArrowUpRight, ArrowDownRight, Wallet, Receipt, Clock, AlertTriangle, Pl
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { clsx } from 'clsx';
 import { getInvoices, getClients, getCompany, getExpenses } from '@/lib/actions/db';
-import { Invoice, Client, Company, Expense } from '@/lib/types';
+import { getAllStockAlerts } from '@/lib/actions/boutiques';
+import { Invoice, Client, Company, Expense, StockAlert } from '@/lib/types';
 
 export default function DashboardPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -20,16 +22,18 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [invs, clis, comp, exps] = await Promise.all([
+        const [invs, clis, comp, exps, alerts] = await Promise.all([
           getInvoices(),
           getClients(),
           getCompany(),
-          getExpenses()
+          getExpenses(),
+          getAllStockAlerts()
         ]);
         setInvoices(invs);
         setClients(clis);
         setCompany(comp);
         setExpenses(exps);
+        setStockAlerts(alerts);
       } catch (err) {
         console.error('Error loading dashboard data:', err);
       } finally {
@@ -234,6 +238,33 @@ export default function DashboardPage() {
           Nouvelle facture
         </Link>
       </div>
+
+      {/* Stock Alerts Notification Banner */}
+      {stockAlerts.length > 0 && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-rose-600 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-rose-900">
+                  Stock Bas Détecté ({stockAlerts.length} produit{stockAlerts.length > 1 ? 's' : ''})
+                </h3>
+                <p className="text-xs text-rose-700">
+                  Des articles en boutique nécessitent votre attention pour un réapprovisionnement.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/boutiques"
+              className="inline-flex items-center gap-1 text-xs font-bold text-rose-800 bg-white border border-rose-200 px-3 py-1.5 rounded-xl hover:bg-rose-100 transition-colors shrink-0"
+            >
+              Gérer le stock →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Date Filters */}
       <div className="flex flex-col sm:flex-row items-end gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-premium">

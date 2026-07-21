@@ -17,7 +17,7 @@ SECURITY DEFINER
 AS $$
 BEGIN
   -- Check if user is authenticated and is an admin
-  IF auth.jwt() ->> 'email' IN ('soninkaradigital@gmail.com', 'entrepreneur@teranga.sn', 'contact@soninkaratech.sn', 'idrissa@example.com', 'amadou@example.com', 'toureidi321@gmail.com') THEN
+  IF auth.jwt() ->> 'email' IN ('soninkaradigital@gmail.com', 'soninkaradigital+1@gmail.com', 'entrepreneur@teranga.sn', 'contact@soninkaratech.sn', 'idrissa@example.com', 'amadou@example.com', 'toureidi321@gmail.com') THEN
     RETURN QUERY 
     SELECT 
       c.id,

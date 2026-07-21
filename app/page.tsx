@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Receipt, Check, ArrowRight, ShieldCheck, Zap, Download, Users, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Receipt, Check, ArrowRight, ShieldCheck, Zap, Download, Users, CheckCircle2, TrendingUp, Store } from 'lucide-react';
 import { formatFCFA } from '@/lib/utils/invoice';
 import { clsx } from 'clsx';
 
@@ -16,29 +16,29 @@ export default function LandingPage() {
       icon: Receipt,
     },
     {
-      title: 'TVA 18% automatique',
-      description: 'Calcul automatique conforme aux normes de la zone UEMOA/CEMAC, pour éviter toute erreur de calcul.',
-      icon: Zap,
+      title: 'Gestion Boutiques & Stocks',
+      description: 'Suivez vos points de vente, contrôlez vos stocks en temps réel et recevez des alertes de réapprovisionnement.',
+      icon: Store,
     },
     {
-      title: 'Export PDF professionnel',
-      description: 'Téléchargez vos factures en PDF en un clic ou imprimez-les directement avec une mise en page soignée.',
+      title: 'Export PDF & Impression',
+      description: 'Téléchargez vos factures et bilans financiers de boutique en PDF en un clic ou imprimez-les directement.',
       icon: Download,
     },
     {
-      title: 'Suivi des paiements',
-      description: 'Sachez exactement quelles factures sont payées, en attente ou en retard avec des alertes visuelles.',
-      icon: CheckCircle2,
+      title: 'Calcul TVA 18% automatique',
+      description: 'Calcul automatique conforme aux normes de la zone UEMOA/CEMAC pour éviter toute erreur comptable.',
+      icon: Zap,
     },
     {
-      title: 'Fichier clients intégré',
-      description: 'Conservez les coordonnées de vos clients (Sénégal, Côte d\'Ivoire, Mali, etc.) pour facturer en 3 secondes.',
-      icon: Users,
-    },
-    {
-      title: 'Rapports de trésorerie',
-      description: 'Suivez vos indicateurs clés de performance : chiffre d\'affaires facturé, encaissé et encours client.',
+      title: 'Registre des Dépenses',
+      description: 'Affectez chaque dépense à une boutique spécifique ou à l\'entreprise globale pour mesurer le bénéfice net réel.',
       icon: TrendingUp,
+    },
+    {
+      title: 'Fichier clients & Suivi',
+      description: 'Conservez les coordonnées de vos clients et sachez quelles factures sont payées, en attente ou en retard.',
+      icon: Users,
     }
   ];
 
@@ -142,10 +142,10 @@ export default function LandingPage() {
               <span>Conforme aux normes fiscales régionales</span>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-950 leading-tight tracking-tight">
-              La facturation pensée pour les <span className="bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">entrepreneurs africains</span>
+              Facturation, Boutiques & Stocks pour les <span className="bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">entrepreneurs africains</span>
             </h1>
             <p className="text-slate-500 text-sm md:text-base leading-relaxed max-w-xl mx-auto lg:mx-0">
-              Générez des factures en FCFA en 2 minutes, calculez automatiquement la TVA à 18%, gérez vos clients et soyez payé plus rapidement. Simple, moderne et sans friction.
+              Émettez vos factures en FCFA, suivez le stock de vos boutiques en direct, calculez automatiquement la TVA à 18% et contrôlez la rentabilité réelle de chaque point de vente.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
               <Link

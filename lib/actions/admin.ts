@@ -69,6 +69,7 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         client_count: 5,
         invoice_count: 6,
         total_invoiced: 8500000,
+        boutique_count: 2,
       },
       {
         id: 'comp-2',
@@ -81,6 +82,7 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         client_count: 2,
         invoice_count: 12,
         total_invoiced: 3400000,
+        boutique_count: 1,
       },
       {
         id: 'comp-3',
@@ -93,6 +95,7 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         client_count: 8,
         invoice_count: 24,
         total_invoiced: 18900000,
+        boutique_count: 3,
       },
       {
         id: 'comp-4',
@@ -105,6 +108,7 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         client_count: 4,
         invoice_count: 9,
         total_invoiced: 5200000,
+        boutique_count: 0,
       },
     ];
   }
@@ -128,6 +132,7 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
       client_count: number | string;
       invoice_count: number | string;
       total_invoiced: number | string;
+      boutique_count: number | string;
     }
 
     const { data, error } = await supabase.rpc('get_companies_summary_admin');
@@ -150,6 +155,7 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
       client_count: Number(item.client_count || 0),
       invoice_count: Number(item.invoice_count || 0),
       total_invoiced: Number(item.total_invoiced || 0),
+      boutique_count: Number(item.boutique_count || 0),
     }));
   } catch (err) {
     console.error('Error in getCompaniesSummaryAdmin:', err);

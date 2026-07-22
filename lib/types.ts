@@ -85,6 +85,7 @@ export interface CompanySummary {
   client_count: number;
   invoice_count: number;
   total_invoiced: number;
+  boutique_count: number;
 }
 
 export interface Boutique {

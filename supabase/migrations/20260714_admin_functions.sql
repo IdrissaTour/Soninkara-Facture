@@ -1,4 +1,6 @@
 -- Function to get summaries of all companies for admins
+DROP FUNCTION IF EXISTS public.get_companies_summary_admin();
+
 CREATE OR REPLACE FUNCTION public.get_companies_summary_admin()
 RETURNS TABLE (
     id UUID,
@@ -10,7 +12,8 @@ RETURNS TABLE (
     created_at TIMESTAMPTZ,
     client_count BIGINT,
     invoice_count BIGINT,
-    total_invoiced NUMERIC
+    total_invoiced NUMERIC,
+    boutique_count BIGINT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -29,10 +32,12 @@ BEGIN
       c.created_at,
       COUNT(DISTINCT cl.id)::BIGINT as client_count,
       COUNT(DISTINCT i.id)::BIGINT as invoice_count,
-      COALESCE(SUM(i.total), 0)::NUMERIC as total_invoiced
+      COALESCE(SUM(i.total), 0)::NUMERIC as total_invoiced,
+      COUNT(DISTINCT b.id)::BIGINT as boutique_count
     FROM public.companies c
     LEFT JOIN public.clients cl ON cl.company_id = c.id
     LEFT JOIN public.invoices i ON i.company_id = c.id
+    LEFT JOIN public.boutiques b ON b.company_id = c.id
     GROUP BY c.id, c.name, c.email, c.phone, c.address, c.owner_id, c.created_at
     ORDER BY c.created_at DESC;
   ELSE

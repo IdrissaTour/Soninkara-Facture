@@ -26,6 +26,16 @@ export default function AuthCard() {
 
   useEffect(() => {
     setMounted(true);
+    // Détecter les erreurs retournées par le callback d'authentification
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const errorParam = params.get('error');
+      if (errorParam === 'auth-callback-failed') {
+        setError("Échec de la connexion. Veuillez vérifier que Google OAuth est correctement configuré dans votre projet Supabase.");
+      } else if (errorParam) {
+        setError(`Erreur d'authentification : ${errorParam}`);
+      }
+    }
   }, []);
 
   // Sync activeTab with route pathname transitions
@@ -243,6 +253,16 @@ export default function AuthCard() {
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
+    
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      setError("Les variables d'environnement Supabase ne sont pas configurées. Impossible d'initier la connexion Google.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -291,13 +311,13 @@ export default function AuthCard() {
           <div className="space-y-4">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold backdrop-blur-md border border-white/10 text-brand-300">
               <Sparkles className="h-3.5 w-3.5" />
-              SaaS de Facturation Régionale
+              SaaS de Facturation, Boutiques & Vocal IA
             </div>
             <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
-              Simplifiez votre facturation en <span className="bg-gradient-to-r from-brand-300 via-indigo-200 to-white bg-clip-text text-transparent">Franc CFA</span>.
+              Gérez vos boutiques et facturez en <span className="bg-gradient-to-r from-brand-300 via-indigo-200 to-white bg-clip-text text-transparent">Franc CFA</span>.
             </h1>
             <p className="text-sm text-slate-300 leading-relaxed font-medium">
-              Conçu sur-mesure pour les entrepreneurs, freelances et PME d&apos;Afrique de l&apos;Ouest. Calculez automatiquement la TVA à 18% et générez des PDF premium pour vos clients.
+              Conçu pour l&apos;Afrique de l&apos;Ouest. Suivez vos stocks de boutique et créez vos factures par note vocale en Wolof, Bambara ou Français en un clin d&apos;œil.
             </p>
           </div>
 
@@ -655,158 +675,7 @@ export default function AuthCard() {
                 </div>
               )}
 
-              {/* Alert Blocks */}
-              {error && (
-                <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex gap-3 text-xs text-rose-600 font-medium animate-fadeIn">
-                  <AlertCircle className="h-4.5 w-4.5 shrink-0 text-rose-500" />
-                  <span>{error}</span>
-                </div>
-              )}
 
-              {success && (
-                <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex gap-3 text-xs text-emerald-700 font-semibold animate-fadeIn">
-                  <CheckCircle className="h-4.5 w-4.5 shrink-0 text-emerald-600" />
-                  <span>{success}</span>
-                </div>
-              )}
-
-              {/* Form Render (Login) */}
-              {activeTab === 'login' && (
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Adresse email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                      <input
-                        type="email"
-                        placeholder="nom@entreprise.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Mot de passe</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          resetMessages();
-                          setActiveTab('forgot-password');
-                        }}
-                        className="text-xs font-semibold text-brand-600 hover:text-brand-700 transition-colors"
-                      >
-                        Mot de passe oublié ?
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                      <input
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-4 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-lg shadow-brand-600/15 disabled:opacity-50 hover:-translate-y-0.5"
-                  >
-                    {loading ? 'Connexion en cours...' : 'Se connecter à mon espace'}
-                    {!loading && <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </form>
-              )}
-
-              {/* Form Render (Signup) */}
-              {activeTab === 'signup' && (
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Nom complet / Pseudo</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Ex: Idrissa Touré"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Adresse email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                      <input
-                        type="email"
-                        placeholder="nom@entreprise.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Mot de passe</label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                      <input
-                        type="password"
-                        placeholder="Créer un mot de passe (min 6 caractères)"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
-                        minLength={6}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Confirmer le mot de passe</label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-3.5 h-4.5 w-4.5 text-slate-400" />
-                      <input
-                        type="password"
-                        placeholder="Confirmer votre mot de passe"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white transition-all shadow-sm"
-                        minLength={6}
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-4 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-lg shadow-brand-600/15 disabled:opacity-50 hover:-translate-y-0.5"
-                  >
-                    {loading ? 'Création de compte...' : 'Créer mon compte maintenant'}
-                    {!loading && <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </form>
-              )}
 
               {/* Form Render (Forgot Password) */}
               {activeTab === 'forgot-password' && (

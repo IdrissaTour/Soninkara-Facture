@@ -17,7 +17,8 @@ import {
   MapPin,
   Calendar,
   Building,
-  Key
+  Key,
+  Store
 } from 'lucide-react';
 import { getCompaniesSummaryAdmin, checkAdminStatus, verifyAdminPasscode } from '@/lib/actions/admin';
 import { CompanySummary } from '@/lib/types';
@@ -118,6 +119,7 @@ export default function AdminDashboardPage() {
   const totalClients = summaries.reduce((acc, curr) => acc + curr.client_count, 0);
   const totalInvoices = summaries.reduce((acc, curr) => acc + curr.invoice_count, 0);
   const totalInvoicedAmount = summaries.reduce((acc, curr) => acc + curr.total_invoiced, 0);
+  const totalBoutiques = summaries.reduce((acc, curr) => acc + (curr.boutique_count || 0), 0);
 
   // 1. Loading check while verifying user profile
   if (checkingAdmin) {
@@ -244,7 +246,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {/* Companies card */}
         <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-premium card-hover-effect">
           <div className="flex items-center justify-between mb-4">
@@ -255,6 +257,18 @@ export default function AdminDashboardPage() {
           </div>
           <p className="text-3xl font-extrabold text-slate-900">{loading ? '...' : totalCompanies}</p>
           <p className="text-xs text-slate-500 mt-1">Comptes configurés en Afrique</p>
+        </div>
+
+        {/* Boutiques card */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-premium card-hover-effect">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Boutiques</span>
+            <div className="rounded-xl bg-indigo-50 p-2 text-brand-600">
+              <Store className="h-5 w-5" />
+            </div>
+          </div>
+          <p className="text-3xl font-extrabold text-slate-900">{loading ? '...' : totalBoutiques}</p>
+          <p className="text-xs text-slate-500 mt-1">Boutiques actives gérées</p>
         </div>
 
         {/* Clients card */}
@@ -346,6 +360,7 @@ export default function AdminDashboardPage() {
                   <th className="py-3 px-4">Entreprise</th>
                   <th className="py-3 px-4">Propriétaire</th>
                   <th className="py-3 px-4 text-center">Clients</th>
+                  <th className="py-3 px-4 text-center">Boutiques</th>
                   <th className="py-3 px-4 text-center">Factures</th>
                   <th className="py-3 px-4 text-right">Montant Facturé</th>
                   <th className="py-3 px-4 text-right">Inscrit le</th>
@@ -376,6 +391,9 @@ export default function AdminDashboardPage() {
                     </td>
                     <td className="py-4 px-4 text-center font-semibold text-slate-600">
                       {company.client_count}
+                    </td>
+                    <td className="py-4 px-4 text-center font-semibold text-slate-600">
+                      {company.boutique_count || 0}
                     </td>
                     <td className="py-4 px-4 text-center font-semibold text-slate-600">
                       {company.invoice_count}
@@ -483,10 +501,15 @@ export default function AdminDashboardPage() {
               <div className="space-y-3">
                 <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400">{"Statistiques d'Activité"}</h5>
                 
-                <div className="grid gap-3 grid-cols-3">
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                   <div className="rounded-xl border border-slate-200/60 p-4 text-center bg-indigo-50/20">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">Clients</p>
                     <p className="text-xl font-extrabold text-brand-700 mt-1">{selectedCompany.client_count}</p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200/60 p-4 text-center bg-indigo-50/20">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Boutiques</p>
+                    <p className="text-xl font-extrabold text-brand-700 mt-1">{selectedCompany.boutique_count || 0}</p>
                   </div>
 
                   <div className="rounded-xl border border-slate-200/60 p-4 text-center bg-blue-50/20">

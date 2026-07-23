@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Receipt, Check, ArrowRight, ShieldCheck, Zap, Download, Users, TrendingUp, Store } from 'lucide-react';
+import { Receipt, Check, ArrowRight, ShieldCheck, Zap, Download, Users, TrendingUp, Store, Mic } from 'lucide-react';
 import { formatFCFA } from '@/lib/utils/invoice';
 import { clsx } from 'clsx';
 
@@ -137,9 +137,15 @@ export default function LandingPage() {
           
           {/* Text and CTAs */}
           <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 border border-brand-100 px-3.5 py-1 text-xs font-bold text-brand-700 shadow-sm">
-              <ShieldCheck className="h-4 w-4" />
-              <span>Conforme aux normes fiscales régionales</span>
+            <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 border border-brand-100 px-3.5 py-1 text-xs font-bold text-brand-700 shadow-sm">
+                <ShieldCheck className="h-4 w-4" />
+                <span>Conforme aux normes fiscales régionales</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-3.5 py-1 text-xs font-bold text-indigo-700 shadow-sm animate-pulse">
+                <Mic className="h-3.5 w-3.5" />
+                <span>Facturation Vocale dispo (Bambara, Wolof, Soninké)</span>
+              </div>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-950 leading-tight tracking-tight">
               Facturation, Boutiques & Stocks pour les <span className="bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">entrepreneurs africains</span>
@@ -147,6 +153,14 @@ export default function LandingPage() {
             <p className="text-slate-500 text-sm md:text-base leading-relaxed max-w-xl mx-auto lg:mx-0">
               Émettez vos factures en FCFA, suivez le stock de vos boutiques en direct, calculez automatiquement la TVA à 18% et contrôlez la rentabilité réelle de chaque point de vente.
             </p>
+            <div className="flex items-center gap-2.5 text-xs text-brand-700 bg-brand-50/50 border border-brand-100 rounded-xl p-3.5 max-w-xl mx-auto lg:mx-0">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
+                <Mic className="h-4 w-4" />
+              </div>
+              <p className="text-left font-medium">
+                <span className="font-bold text-brand-900">Nouveau :</span> Vous pouvez désormais créer vos factures par commande vocale en <span className="font-bold text-brand-900">Bambara</span>, <span className="font-bold text-brand-900">Wolof</span> et <span className="font-bold text-brand-900">Soninké</span> !
+              </p>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
               <Link
                 href="/dashboard"

@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { mockCompany, mockClients, mockInvoices, mockInvoiceItems, mockExpenses, mockBoutiques } from '@/lib/mock-data';
-import { Company, Client, Invoice, InvoiceItem, InvoiceStatus, Expense } from '@/lib/types';
+import { mockCompany, mockClients, mockInvoices, mockInvoiceItems, mockExpenses, mockBoutiques, mockAbonnement } from '@/lib/mock-data';
+import { Company, Client, Invoice, InvoiceItem, InvoiceStatus, Expense, Abonnement } from '@/lib/types';
 
 // Helper to check if Supabase is fully configured
 function isSupabaseConfigured() {
@@ -728,4 +728,55 @@ export async function deleteExpenseAction(id: string): Promise<boolean> {
     console.error('Exception deleting expense:', err);
     return false;
   }
+}
+
+// ----------------------------------------------------
+// ABONNEMENT ACTIONS
+// ----------------------------------------------------
+
+export async function getAbonnement(): Promise<Abonnement | null> {
+  if (!isSupabaseConfigured()) {
+    return mockAbonnement;
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return mockAbonnement;
+
+    let { data, error } = await supabase
+      .from('abonnements')
+      .select('*')
+      .eq('utilisateur_id', user.id)
+      .maybeSingle();
+
+    // Auto-create if it doesn't exist
+    if (!data && !error) {
+      const { data: insertedData, error: insertError } = await supabase
+        .from('abonnements')
+        .insert({
+          utilisateur_id: user.id,
+          plan: 'essai',
+          statut: 'actif',
+          date_fin_essai: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .select()
+        .single();
+
+      if (!insertError && insertedData) {
+        data = insertedData;
+      }
+    }
+
+    return data as Abonnement;
+  } catch (err) {
+    console.error('Error in getAbonnement:', err);
+    return null;
+  }
+}
+
+export async function updateMockAbonnement(abonnementData: Partial<Abonnement>): Promise<Abonnement> {
+  Object.assign(mockAbonnement, abonnementData);
+  revalidatePath('/dashboard');
+  return mockAbonnement;
 }

@@ -176,3 +176,28 @@ export interface StockAlert {
   seuilAlerte: number;
 }
 
+export interface Abonnement {
+  id: string;
+  utilisateur_id: string;
+  plan: 'essai' | 'starter' | 'pro' | 'entreprise';
+  statut: 'actif' | 'expire' | 'annule' | 'en_attente_paiement';
+  date_debut_essai: string;
+  date_fin_essai: string;
+  date_debut_abonnement: string | null;
+  date_prochaine_facturation: string | null;
+  montant: number | null;
+  cycle_facturation: 'mensuel' | 'annuel' | null;
+  statut_paiement: 'paye' | 'echec' | 'en_attente' | null;
+  created_at?: string;
+}
+
+export interface TransactionPaiement {
+  id: string;
+  transaction_id: string;
+  utilisateur_id: string;
+  plan: string;
+  montant: number;
+  statut: 'en_attente' | 'paye' | 'echec';
+  created_at?: string;
+}
+

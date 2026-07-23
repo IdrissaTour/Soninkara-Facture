@@ -1,4 +1,4 @@
-import { Client, Invoice, InvoiceItem, Company, Expense, Boutique, Produit, MouvementStock, Vente } from './types';
+import { Client, Invoice, InvoiceItem, Company, Expense, Boutique, Produit, MouvementStock, Vente, Abonnement } from './types';
 
 export const mockCompany: Company = {
   id: 'comp-1',
@@ -383,4 +383,20 @@ export const mockVentes: Vente[] = [
     created_at: '2026-05-19T16:10:00Z'
   }
 ];
+
+export const mockAbonnement: Abonnement = {
+  id: 'sub-mock-1',
+  utilisateur_id: 'user-123',
+  plan: 'essai',
+  statut: 'actif',
+  date_debut_essai: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(), // 25 days ago
+  date_fin_essai: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days remaining
+  date_debut_abonnement: null,
+  date_prochaine_facturation: null,
+  montant: null,
+  cycle_facturation: null,
+  statut_paiement: null,
+  created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString()
+};
+
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, X, TrendingDown, Shield, Store } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, X, TrendingDown, Shield, Store, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/lib/supabase/client';
 
@@ -43,6 +43,7 @@ export default function MobileNav({
     { name: 'Dépenses', href: '/dashboard/expenses', icon: TrendingDown },
     { name: 'Boutiques & Stocks', href: '/dashboard/boutiques', icon: Store },
     { name: 'Clients', href: '/dashboard/clients', icon: Users },
+    { name: 'Abonnement', href: '/dashboard/abonnement', icon: CreditCard },
     { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },
   ];
 

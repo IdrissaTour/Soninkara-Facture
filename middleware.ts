@@ -46,6 +46,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // Check subscription status
+  if (isDashboardRoute && user) {
+    const isAbonnementRoute = request.nextUrl.pathname === '/dashboard/abonnement';
+    if (!isAbonnementRoute) {
+      const { data: abonnement } = await supabase
+        .from('abonnements')
+        .select('statut, plan')
+        .eq('utilisateur_id', user.id)
+        .maybeSingle();
+
+      const routesBloquees = [
+        '/dashboard/invoices/new',
+        '/dashboard/boutiques',
+        '/dashboard/clients',
+        '/dashboard/expenses'
+      ];
+
+      if (
+        abonnement?.statut === 'expire' &&
+        routesBloquees.some(r => request.nextUrl.pathname.startsWith(r))
+      ) {
+        return NextResponse.redirect(new URL('/dashboard/abonnement?expire=true', request.url));
+      }
+    }
+  }
+
   function isUserAdmin(email?: string): boolean {
     if (!email) return false;
     const cleanEmail = email.trim().toLowerCase();

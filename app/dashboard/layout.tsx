@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import TopBar from '@/components/layout/TopBar';
 import MobileNav from '@/components/layout/MobileNav';
-import { getCompany } from '@/lib/actions/db';
+import { getCompany, getAbonnement } from '@/lib/actions/db';
 import { checkAdminStatus } from '@/lib/actions/admin';
+import { BanniereEssai } from '@/components/subscription/BanniereEssai';
+import { Abonnement } from '@/lib/types';
 
 export default function DashboardLayout({
   children,
@@ -18,11 +20,14 @@ export default function DashboardLayout({
   const [companyName, setCompanyName] = useState('Soninkara Tech Solutions');
   const [userEmail, setUserEmail] = useState('entrepreneur@teranga.sn');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [abonnement, setAbonnement] = useState<Abonnement | null>(null);
 
   useEffect(() => {
     async function loadData() {
       const company = await getCompany();
       const adminActive = await checkAdminStatus();
+      const sub = await getAbonnement();
+      setAbonnement(sub);
       setIsAdmin(adminActive);
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -77,6 +82,7 @@ export default function DashboardLayout({
 
         {/* Dashboard Pages Content */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <BanniereEssai abonnement={abonnement} />
           {children}
         </main>
       </div>

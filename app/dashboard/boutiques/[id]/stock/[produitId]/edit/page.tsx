@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Package, Save, Hash, ImageIcon, Upload, X, Loader2 } from 'lucide-react';
 import { getProduitByIdAction, updateProduitAction } from '@/lib/actions/boutiques';
+import { compressImage } from '@/lib/utils/image';
 
 export default function EditProduitPage() {
   const router = useRouter();
@@ -48,18 +49,17 @@ export default function EditProduitPage() {
     fetchProduit();
   }, [produitId]);
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setError("L'image choisie dépasse 2 Mo. Veuillez utiliser une image plus légère.");
-        return;
+      try {
+        setError(null);
+        const compressedBase64 = await compressImage(file);
+        setImageUrl(compressedBase64);
+      } catch (err) {
+        console.error("Compression error:", err);
+        setError("Erreur lors du traitement de l'image. Veuillez réessayer.");
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 

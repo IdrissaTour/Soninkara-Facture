@@ -44,48 +44,51 @@ export default function LandingPage() {
 
   const pricing = [
     {
-      name: 'Gratuit',
-      price: 0,
-      description: 'Pour tester le service et démarrer en toute sérénité.',
+      name: 'Starter',
+      price: billingCycle === 'monthly' ? 3000 : 2400,
+      description: 'Idéal pour démarrer avec un premier point de vente.',
       features: [
-        'Jusqu\'à 5 factures par mois',
-        'Gestion de 5 clients',
+        '1 boutique configurée',
+        'Factures & Devis illimités',
+        'Clients illimités',
         'Calcul automatique TVA 18%',
+        'Saisie vocale Wolof, Bambara, Soninké',
         'Export PDF standard',
-        'Monodevise FCFA'
+        'Support standard par email'
       ],
-      cta: 'Commencer gratuitement',
+      cta: 'Démarrer Starter',
       href: '/dashboard',
       popular: false
     },
     {
-      name: 'Professionnel',
-      price: billingCycle === 'monthly' ? 5000 : 4000,
-      description: 'Idéal pour les freelances et PME en pleine croissance.',
+      name: 'Pro',
+      price: billingCycle === 'monthly' ? 10000 : 8000,
+      description: 'Conçu pour les commerces et PME en pleine croissance.',
       features: [
-        'Factures & Devis illimités',
-        'Clients illimités',
+        'Tout le plan Starter',
+        'Jusqu\'à 6 boutiques physiques / stocks',
         'Logo d\'entreprise personnalisé',
-        'Rapports financiers complets',
-        'Support client prioritaire WhatsApp',
-        'Relance automatique des retards'
+        'Rapports & statistiques avancés',
+        'Relance automatique des retards',
+        'Support client prioritaire WhatsApp'
       ],
-      cta: 'Démarrer l\'essai gratuit',
+      cta: 'Choisir le plan Pro',
       href: '/dashboard',
       popular: true
     },
     {
       name: 'Entreprise',
-      price: billingCycle === 'monthly' ? 12000 : 10000,
-      description: 'Conçu pour les structures gérant plusieurs activités.',
+      price: billingCycle === 'monthly' ? 25000 : 20000,
+      description: 'Pour les structures gérant plusieurs activités complexes.',
       features: [
-        'Tout le plan Professionnel',
-        'Gestion multi-entreprises (jusqu\'à 3)',
+        'Tout le plan Pro',
+        'Boutiques & Stocks illimités',
+        'Multi-entreprises configurées',
         'Accès collaborateur pour votre comptable',
         'Intégration API de paiement locale',
         'Sauvegarde Cloud automatique'
       ],
-      cta: 'Contacter notre équipe',
+      cta: 'Activer Entreprise',
       href: '/dashboard',
       popular: false
     }

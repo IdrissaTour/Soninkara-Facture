@@ -141,6 +141,38 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
 
     if (!company) throw new Error('Entreprise non trouvée');
 
+    // Récupérer l'abonnement
+    const { data: abonnement } = await supabase
+      .from('abonnements')
+      .select('plan, statut')
+      .eq('utilisateur_id', user.id)
+      .maybeSingle();
+
+    const plan = abonnement?.statut === 'actif' ? abonnement.plan : 'essai';
+
+    // Compter le nombre de boutiques existantes
+    const { count, error: countError } = await supabase
+      .from('boutiques')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', company.id);
+
+    if (countError) throw new Error('Impossible de valider vos limites d\'abonnement pour le moment');
+
+    const boutiqueCount = count || 0;
+
+    let maxBoutiques = 1; // Essai gratuit et Starter : 1 boutique
+    if (plan === 'pro') {
+      maxBoutiques = 6;
+    } else if (plan === 'entreprise') {
+      maxBoutiques = 999999; // Illimité
+    } else if (plan === 'starter') {
+      maxBoutiques = 1;
+    }
+
+    if (boutiqueCount >= maxBoutiques) {
+      throw new Error(`Votre forfait actuel (${plan.toUpperCase()}) limite la création à un maximum de ${maxBoutiques} boutique(s). Veuillez mettre à niveau votre abonnement.`);
+    }
+
     const { data, error } = await supabase
       .from('boutiques')
       .insert({

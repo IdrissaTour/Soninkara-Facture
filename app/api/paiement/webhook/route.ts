@@ -1,66 +1,81 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    let transactionId = '';
+    let data: any = {};
 
-    // Handle both content types
+    // 1. Extraire les données selon le type de contenu (x-www-form-urlencoded ou JSON)
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('application/x-www-form-urlencoded')) {
       const formData = await req.formData();
-      transactionId = formData.get('cpm_trans_id') as string;
+      data = Object.fromEntries(formData.entries());
     } else {
-      const payload = await req.json();
-      transactionId = payload.cpm_trans_id;
+      data = await req.json();
     }
 
-    if (!transactionId) {
-      return NextResponse.json({ error: 'Identifiant de transaction manquant' }, { status: 400 });
+    const {
+      type_event,
+      ref_command,
+      api_key_sha256,
+      api_secret_sha256
+    } = data;
+
+    if (!ref_command) {
+      console.error('Webhook PayTech: Référence de commande manquante');
+      return NextResponse.json({ error: 'Référence de commande manquante' }, { status: 400 });
     }
 
-    // Call CinetPay check API to verify the status securely
-    const checkResponse = await fetch('https://api-checkout.cinetpay.com/v2/payment/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apikey: process.env.CINETPAY_API_KEY,
-        site_id: process.env.CINETPAY_SITE_ID,
-        transaction_id: transactionId
-      })
-    });
+    // 2. Validation de la signature cryptographique PayTech (HMAC SHA-256)
+    const apiKey = process.env.PAYTECH_API_KEY || '';
+    const apiSecret = process.env.PAYTECH_SECRET_KEY || '';
 
-    const verification = await checkResponse.json();
+    const localApiKeyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
+    const localApiSecretHash = crypto.createHash('sha256').update(apiSecret).digest('hex');
 
-    if (verification.code !== '00' && verification.code !== 0) {
-      console.error('CinetPay verification failed:', verification);
-      return NextResponse.json({ error: verification.description || 'Echec de la verification' }, { status: 400 });
+    if (localApiKeyHash !== api_key_sha256 || localApiSecretHash !== api_secret_sha256) {
+      console.error('Webhook PayTech: Signature invalide pour la commande', ref_command);
+      return NextResponse.json({ error: 'Signature invalide' }, { status: 403 });
     }
 
-    if (verification.data.status === 'ACCEPTED') {
-      const supabaseAdmin = createAdminClient();
+    const supabaseAdmin = createAdminClient();
 
-      // Retrieve the transaction details
-      const { data: transaction, error: txError } = await supabaseAdmin
-        .from('transactions_paiement')
-        .select('*')
-        .eq('transaction_id', transactionId)
-        .maybeSingle();
+    // 3. Récupérer la transaction correspondante en base de données
+    const { data: transaction, error: txError } = await supabaseAdmin
+      .from('transactions_paiement')
+      .select('*')
+      .eq('transaction_id', ref_command)
+      .maybeSingle();
 
-      if (txError || !transaction) {
-        console.error('Transaction not found in DB:', transactionId);
-        return NextResponse.json({ error: 'Transaction introuvable' }, { status: 404 });
-      }
+    if (txError || !transaction) {
+      console.error('Webhook PayTech: Transaction introuvable pour la commande', ref_command, txError);
+      // Toujours répondre 200 pour éviter que PayTech ne bombarde le serveur de retries
+      return NextResponse.json({ received: true, error: 'Transaction introuvable' });
+    }
 
-      // Update the transaction status
+    // 4. Idempotence : Si la transaction est déjà marquée payée, ne rien faire de plus
+    if (transaction.statut === 'paye') {
+      console.log('Webhook PayTech: Transaction déjà traitée pour la commande', ref_command);
+      return NextResponse.json({ received: true, message: 'Déjà traité' });
+    }
+
+    // 5. Traitement selon l'événement PayTech
+    if (type_event === 'sale_complete') {
+      console.log(`Webhook PayTech: Paiement réussi pour la transaction ${ref_command}. Activation de l'abonnement...`);
+
+      // Mettre à jour la transaction à 'paye'
       await supabaseAdmin
         .from('transactions_paiement')
-        .update({ statut: 'paye' })
-        .eq('transaction_id', transactionId);
+        .update({ 
+          statut: 'paye',
+          paye_at: new Date().toISOString()
+        })
+        .eq('transaction_id', ref_command);
 
-      // Determine cycle and end date
+      // Calculer le cycle de facturation et la date de prochaine facturation
       const montant = Number(transaction.montant);
-      const isYearly = montant === 50000 || montant === 120000 || montant === 250000;
+      const isYearly = montant === 28800 || montant === 96000 || montant === 240000;
       const cycle = isYearly ? 'annuel' : 'mensuel';
       
       const dateProchaineFacturation = new Date();
@@ -70,7 +85,7 @@ export async function POST(req: NextRequest) {
         dateProchaineFacturation.setDate(dateProchaineFacturation.getDate() + 30);
       }
 
-      // Update or insert subscriber profile status
+      // Activer ou mettre à jour l'abonnement de l'utilisateur
       const { error: subError } = await supabaseAdmin
         .from('abonnements')
         .upsert({
@@ -87,17 +102,29 @@ export async function POST(req: NextRequest) {
         });
 
       if (subError) {
-        console.error('Error updating subscriber plan:', subError);
-        return NextResponse.json({ error: subError.message }, { status: 500 });
+        console.error('Webhook PayTech: Erreur lors de l\'activation de l\'abonnement:', subError);
+        return NextResponse.json({ received: true, error: 'Erreur lors de l\'activation' });
       }
 
+      console.log(`Webhook PayTech: Abonnement mis à jour avec succès pour l'utilisateur ${transaction.utilisateur_id}`);
       return NextResponse.json({ received: true, status: 'ACCEPTED' });
+
+    } else if (type_event === 'sale_cancel' || type_event === 'sale_error') {
+      console.log(`Webhook PayTech: Échec ou annulation du paiement pour la transaction ${ref_command}`);
+
+      // Mettre à jour le statut de la transaction à 'echec'
+      await supabaseAdmin
+        .from('transactions_paiement')
+        .update({ statut: 'echec' })
+        .eq('transaction_id', ref_command);
+
+      return NextResponse.json({ received: true, status: 'FAILED' });
     }
 
-    return NextResponse.json({ received: true, status: verification.data.status });
+    return NextResponse.json({ received: true, status: 'UNKNOWN_EVENT' });
   } catch (err) {
-    console.error('Error in paiement/webhook:', err);
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    return NextResponse.json({ error: errMsg }, { status: 500 });
+    console.error('Exception dans le webhook PayTech:', err);
+    // Toujours répondre 200 pour éviter un retry infini de PayTech en cas d'erreur interne
+    return NextResponse.json({ received: true, error_interne: true });
   }
 }

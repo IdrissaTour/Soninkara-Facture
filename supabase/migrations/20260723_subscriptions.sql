@@ -45,8 +45,10 @@ CREATE TABLE IF NOT EXISTS public.transactions_paiement (
   utilisateur_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   plan TEXT NOT NULL,
   montant NUMERIC(12,2) NOT NULL,
-  statut TEXT CHECK (statUT IN ('en_attente', 'paye', 'echec')) DEFAULT 'en_attente',
-  created_at TIMESTAMPTZ DEFAULT now()
+  fournisseur TEXT DEFAULT 'paytech',
+  statut TEXT CHECK (statut IN ('en_attente', 'paye', 'echec')) DEFAULT 'en_attente',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  paye_at TIMESTAMPTZ
 );
 
 -- RLS table transactions

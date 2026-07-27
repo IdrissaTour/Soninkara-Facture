@@ -24,11 +24,14 @@ export default function AbonnementPage() {
     }
     loadSub();
     
-    // Check if redirecting from payment success
+    // Check if redirecting from payment success or cancel
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('succes') === 'true') {
         setSuccessMsg("Félicitations ! Votre paiement a été traité avec succès et votre abonnement est désormais actif.");
+      }
+      if (params.get('annule') === 'true') {
+        setErrorMsg("Paiement annulé. Vous pouvez réessayer à tout moment.");
       }
       if (params.get('expire') === 'true') {
         setErrorMsg("Votre période d'essai gratuit a expiré. Veuillez choisir un plan pour continuer à utiliser l'application.");
@@ -65,13 +68,12 @@ export default function AbonnementPage() {
       return;
     }
 
-    // PRODUCTION MODE: Initiate CinetPay checkout
+    // PRODUCTION MODE: Initiate PayTech checkout
     try {
       const response = await fetch('/api/paiement/initier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          utilisateurId: currentAbonnement?.utilisateur_id,
           plan: planKey,
           montant: price,
           cycleFacturation: billingCycle
@@ -80,10 +82,10 @@ export default function AbonnementPage() {
 
       const data = await response.json();
       if (data.lienPaiement) {
-        // Redirect to CinetPay payment portal
+        // Redirect to PayTech payment portal
         window.location.href = data.lienPaiement;
       } else {
-        throw new Error(data.error || "Impossible d'initier le paiement CinetPay.");
+        throw new Error(data.error || "Impossible d'initier le paiement PayTech.");
       }
     } catch (err) {
       console.error(err);
@@ -113,11 +115,11 @@ export default function AbonnementPage() {
       key: 'starter',
       name: 'Starter',
       icon: Sparkles,
-      priceMonthly: 5000,
-      priceYearly: 50000,
-      description: 'Idéal pour les freelances et petites entreprises locales.',
+      priceMonthly: 3000,
+      priceYearly: 28800,
+      description: 'Idéal pour démarrer avec un premier point de vente.',
       features: [
-        '1 entreprise configurée',
+        '1 boutique configurée',
         'Factures & devis illimités',
         '1 boutique physique / stock',
         'Saisie vocale Wolof, Bambara, Soninké',
@@ -129,12 +131,12 @@ export default function AbonnementPage() {
       key: 'pro',
       name: 'Pro',
       icon: Shield,
-      priceMonthly: 12000,
-      priceYearly: 120000,
+      priceMonthly: 10000,
+      priceYearly: 96000,
       description: 'Conçu pour les commerces et PME en pleine croissance.',
       features: [
         'Starter inclus',
-        'Multi-boutiques (jusqu\'à 3)',
+        'Multi-boutiques (jusqu\'à 6)',
         'Statistiques & rapports avancés',
         'Affiliation active & commissions',
         'Personnalisation complète du logo',
@@ -148,7 +150,7 @@ export default function AbonnementPage() {
       name: 'Entreprise',
       icon: Rocket,
       priceMonthly: 25000,
-      priceYearly: 250000,
+      priceYearly: 240000,
       description: 'Pour les structures gérant plusieurs activités complexes.',
       features: [
         'Pro inclus',

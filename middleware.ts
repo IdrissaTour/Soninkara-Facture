@@ -39,39 +39,6 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isDashboardRoute = request.nextUrl.pathname.startsWith('/dashboard');
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup');
-
-  if (isDashboardRoute && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // Check subscription status
-  if (isDashboardRoute && user) {
-    const isAbonnementRoute = request.nextUrl.pathname === '/dashboard/abonnement';
-    if (!isAbonnementRoute) {
-      const { data: abonnement } = await supabase
-        .from('abonnements')
-        .select('statut, plan')
-        .eq('utilisateur_id', user.id)
-        .maybeSingle();
-
-      const routesBloquees = [
-        '/dashboard/invoices/new',
-        '/dashboard/boutiques',
-        '/dashboard/clients',
-        '/dashboard/expenses'
-      ];
-
-      if (
-        abonnement?.statut === 'expire' &&
-        routesBloquees.some(r => request.nextUrl.pathname.startsWith(r))
-      ) {
-        return NextResponse.redirect(new URL('/dashboard/abonnement?expire=true', request.url));
-      }
-    }
-  }
-
   function isUserAdmin(email?: string): boolean {
     if (!email) return false;
     const cleanEmail = email.trim().toLowerCase();
@@ -87,6 +54,52 @@ export async function middleware(request: NextRequest) {
     return adminEmails.includes(cleanEmail) || 
            cleanEmail.endsWith('@soninkara.sn') || 
            cleanEmail.endsWith('@soninkara-facture.sn');
+  }
+
+  const isDashboardRoute = request.nextUrl.pathname.startsWith('/dashboard');
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup');
+
+  if (isDashboardRoute && !user) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Vérification stricte du statut de l'abonnement pour le Dashboard
+  if (isDashboardRoute && user) {
+    const isAbonnementRoute = request.nextUrl.pathname === '/dashboard/abonnement';
+    const isAdmin = isUserAdmin(user.email);
+
+    if (!isAbonnementRoute && !isAdmin) {
+      const { data: abonnement } = await supabase
+        .from('abonnements')
+        .select('statut, plan, date_fin_essai, date_prochaine_facturation')
+        .eq('utilisateur_id', user.id)
+        .maybeSingle();
+
+      let isExpired = false;
+      const now = new Date();
+
+      if (!abonnement) {
+        isExpired = true; // Pas d'abonnement = expiré par défaut
+      } else if (abonnement.plan === 'essai') {
+        // Période d'essai de 30 jours
+        const dateFinEssai = abonnement.date_fin_essai ? new Date(abonnement.date_fin_essai) : null;
+        if (abonnement.statut === 'expire' || (dateFinEssai && now > dateFinEssai)) {
+          isExpired = true;
+        }
+      } else {
+        // Abonnement payant
+        const dateProchaineFacturation = abonnement.date_prochaine_facturation 
+          ? new Date(abonnement.date_prochaine_facturation) 
+          : null;
+        if (abonnement.statut !== 'actif' || (dateProchaineFacturation && now > dateProchaineFacturation)) {
+          isExpired = true;
+        }
+      }
+
+      if (isExpired) {
+        return NextResponse.redirect(new URL('/dashboard/abonnement?expire=true', request.url));
+      }
+    }
   }
 
   if (isAuthRoute && user) {

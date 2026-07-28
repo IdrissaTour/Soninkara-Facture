@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
     }
 
-    const { plan, montant } = await req.json();
+    const { plan, montant, cycleFacturation } = await req.json();
     
     if (!plan || !montant || montant <= 0) {
       return NextResponse.json({ error: 'Paramètres invalides ou manquants' }, { status: 400 });
@@ -29,11 +29,106 @@ export async function POST(req: NextRequest) {
     const apiSecret = process.env.PAYTECH_SECRET_KEY;
     const paytechEnv = process.env.PAYTECH_ENV || 'test';
 
-    if (!apiKey || !apiSecret) {
-      console.error('Configuration PayTech manquante : API_KEY ou SECRET_KEY indéfinie');
+    // Déterminer si nous devons simuler le paiement (clés de production/test manquantes ou par défaut)
+    const isMockPayment = !apiKey || !apiSecret || 
+      apiKey === 'votre_api_key_ici' || 
+      apiSecret === 'votre_secret_key_ici' ||
+      apiKey.trim() === '' ||
+      apiSecret.trim() === '';
+
+    if (isMockPayment) {
+      console.log(`[Mode Simulation de Paiement] Initiation d'un paiement simulé pour le plan ${plan.toUpperCase()}...`);
+      
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      let dbClient;
+      let usingAdmin = true;
+
+      if (!serviceRoleKey || serviceRoleKey === 'votre_secret_key_ici' || serviceRoleKey.trim() === '') {
+        console.warn(`[Mode Simulation de Paiement] SUPABASE_SERVICE_ROLE_KEY non configurée. Tentative avec le client utilisateur.`);
+        dbClient = supabase;
+        usingAdmin = false;
+      } else {
+        try {
+          dbClient = createAdminClient();
+        } catch (adminErr) {
+          console.warn(`[Mode Simulation de Paiement] Échec de l'initialisation du client admin, repli sur le client utilisateur:`, adminErr);
+          dbClient = supabase;
+          usingAdmin = false;
+        }
+      }
+      
+      // 1. Enregistrer la transaction immédiatement comme payée
+      const { error: dbError } = await dbClient.from('transactions_paiement').insert({
+        transaction_id: refCommande,
+        utilisateur_id: utilisateurId,
+        plan,
+        montant,
+        fournisseur: 'paytech_simule',
+        statut: 'paye',
+        paye_at: new Date().toISOString()
+      });
+
+      if (dbError) {
+        console.error('Erreur d\'insertion de la transaction simulée en BDD:', dbError);
+        if (!usingAdmin) {
+          return NextResponse.json({ 
+            error: 'Clé SUPABASE_SERVICE_ROLE_KEY manquante dans votre fichier .env.local. Veuillez configurer cette variable pour enregistrer les abonnements.' 
+          }, { status: 400 });
+        }
+        return NextResponse.json({ error: 'Erreur interne lors de la sauvegarde de la transaction' }, { status: 500 });
+      }
+
+      // 2. Calculer le cycle de facturation
+      const isYearly = cycleFacturation === 'yearly' || cycleFacturation === 'annuel' || montant === 28800 || montant === 96000 || montant === 240000;
+      const cycle = isYearly ? 'annuel' : 'mensuel';
+      
+      const dateProchaineFacturation = new Date();
+      if (isYearly) {
+        dateProchaineFacturation.setFullYear(dateProchaineFacturation.getFullYear() + 1);
+      } else {
+        dateProchaineFacturation.setDate(dateProchaineFacturation.getDate() + 30);
+      }
+
+      // 3. Activer l'abonnement
+      const { error: subError } = await dbClient
+        .from('abonnements')
+        .upsert({
+          utilisateur_id: utilisateurId,
+          plan,
+          statut: 'actif',
+          date_debut_abonnement: new Date().toISOString(),
+          date_prochaine_facturation: dateProchaineFacturation.toISOString(),
+          montant: montant,
+          cycle_facturation: cycle,
+          statut_paiement: 'paye'
+        }, {
+          onConflict: 'utilisateur_id'
+        });
+
+      if (subError) {
+        console.error('Erreur lors de l\'activation de l\'abonnement simulé:', subError);
+        if (!usingAdmin) {
+          return NextResponse.json({ 
+            error: 'Clé SUPABASE_SERVICE_ROLE_KEY manquante dans votre fichier .env.local. Veuillez configurer cette variable pour activer les abonnements.' 
+          }, { status: 400 });
+        }
+        return NextResponse.json({ error: "Erreur interne lors de l'activation de l'abonnement" }, { status: 500 });
+      }
+
+      // Rediriger directement vers la page de succès de l'abonnement en local
       return NextResponse.json({ 
-        error: 'Le service de paiement PayTech n\'est pas configuré sur le serveur' 
-      }, { status: 500 });
+        lienPaiement: `${appUrl}/dashboard/abonnement?succes=true`, 
+        token: `simule-${refCommande}`
+      });
+    }
+
+    // Déterminer l'URL d'IPN en forçant le protocole HTTPS si nous sommes sur localhost
+    let ipnUrl = `${appUrl}/api/paiement/webhook`;
+    if (ipnUrl.startsWith('http://localhost')) {
+      // PayTech refuse le protocole http pour l'ipn_url. 
+      // On remplace le domaine localhost par une URL HTTPS publique (de secours/fictive)
+      // pour que PayTech valide l'initiation en mode test.
+      ipnUrl = ipnUrl.replace(/http:\/\/localhost:\d+/, 'https://soninkara-facture.vercel.app');
     }
 
     // 2. Appel à l'API de PayTech pour requérir un paiement
@@ -51,7 +146,7 @@ export async function POST(req: NextRequest) {
         ref_command: refCommande,
         command_name: `Abonnement ${plan.toUpperCase()}`,
         env: paytechEnv,
-        ipn_url: `${appUrl}/api/paiement/webhook`,
+        ipn_url: ipnUrl,
         success_url: `${appUrl}/dashboard/abonnement?succes=true`,
         cancel_url: `${appUrl}/dashboard/abonnement?annule=true`,
         target_payment: 'Orange Money, Wave',

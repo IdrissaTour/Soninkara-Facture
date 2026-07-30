@@ -23,6 +23,11 @@ export default function AuthCard() {
   const [success, setSuccess] = useState<string | null>(null);
   const [showEmailVerificationScreen, setShowEmailVerificationScreen] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resendingOtp, setResendingOtp] = useState(false);
+  const [verificationSuccess, setVerificationSuccess] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -55,6 +60,8 @@ export default function AuthCard() {
   const resetMessages = () => {
     setError(null);
     setSuccess(null);
+    setVerificationError(null);
+    setVerificationSuccess(null);
   };
 
   const handleTabChange = (tab: 'login' | 'signup') => {
@@ -180,37 +187,135 @@ export default function AuthCard() {
       });
 
       if (authError) {
-        setError(authError.message);
+        let msg = authError.message;
+        if (msg.includes('already registered') || msg.includes('User already exists')) {
+          msg = "Cette adresse e-mail est déjà associée à un compte. Veuillez vous connecter.";
+        } else if (msg.includes('Password should be at least')) {
+          msg = "Le mot de passe doit contenir au moins 6 caractères.";
+        }
+        setError(msg);
         setLoading(false);
         return;
       }
 
       if (data?.user) {
-        // Si l'utilisateur existe déjà (identities vide en cas de prévention d'énumération)
         if (data.user.identities && data.user.identities.length === 0) {
           setError("Cette adresse e-mail est déjà associée à un compte. Veuillez vous connecter ou réinitialiser votre mot de passe.");
           setLoading(false);
           return;
         }
 
+        setRegisteredEmail(email);
+        setOtpCode('');
+        setVerificationError(null);
+        setVerificationSuccess(null);
         setLoading(false);
-        if (data.session) {
-          setSuccess('Votre compte a été créé avec succès ! Redirection...');
-          setTimeout(() => {
-            window.location.href = '/onboarding';
-          }, 2000);
-        } else {
-          setRegisteredEmail(email);
-          setShowEmailVerificationScreen(true);
-        }
+        setShowEmailVerificationScreen(true);
       } else {
-        setError("Cette adresse e-mail est déjà associée à un compte. Veuillez vous connecter ou réinitialiser votre mot de passe.");
+        setError("Cette adresse e-mail est déjà associée à un compte. Veuillez vous connecter.");
         setLoading(false);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inattendue est survenue.';
       setError(errorMsg);
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode || otpCode.trim().length < 6) {
+      setVerificationError("Veuillez saisir un code de vérification valide à 6 chiffres.");
+      return;
+    }
+
+    setVerifyingOtp(true);
+    setVerificationError(null);
+    setVerificationSuccess(null);
+
+    try {
+      const supabase = createClient();
+      const cleanToken = otpCode.trim();
+      let { error: otpErr } = await supabase.auth.verifyOtp({
+        email: registeredEmail,
+        token: cleanToken,
+        type: 'signup',
+      });
+
+      if (otpErr) {
+        const retry = await supabase.auth.verifyOtp({
+          email: registeredEmail,
+          token: cleanToken,
+          type: 'email',
+        });
+        if (!retry.error) {
+          otpErr = null;
+        }
+      }
+
+      if (otpErr) {
+        let msg = otpErr.message;
+        if (msg.includes('invalid') || msg.includes('expired') || msg.includes('Token')) {
+          msg = "Code de vérification incorrect ou expiré. Veuillez vérifier le code ou en demander un nouveau.";
+        }
+        setVerificationError(msg);
+        setVerifyingOtp(false);
+        return;
+      }
+
+      setVerificationSuccess('Code validé avec succès ! Connexion à votre compte...');
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('owner_id', user.id)
+          .limit(1);
+
+        setTimeout(() => {
+          if (!companies || companies.length === 0) {
+            window.location.href = '/onboarding';
+          } else {
+            window.location.href = '/dashboard';
+          }
+        }, 1200);
+      } else {
+        setTimeout(() => {
+          window.location.href = '/onboarding';
+        }, 1200);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur lors de la vérification du code.';
+      setVerificationError(msg);
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setResendingOtp(true);
+    setVerificationError(null);
+    setVerificationSuccess(null);
+
+    try {
+      const supabase = createClient();
+      const { error: resendErr } = await supabase.auth.resend({
+        type: 'signup',
+        email: registeredEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (resendErr) {
+        setVerificationError(`Impossible de renvoyer le code : ${resendErr.message}`);
+      } else {
+        setVerificationSuccess('Un nouveau code de vérification a été envoyé à votre adresse e-mail !');
+      }
+    } catch {
+      setVerificationError('Erreur lors du renvoi du code de vérification.');
+    } finally {
+      setResendingOtp(false);
     }
   };
 
@@ -368,7 +473,7 @@ export default function AuthCard() {
         {/* Center Form Container */}
         <div className="my-auto max-w-md w-full mx-auto space-y-8 pt-8 lg:pt-0">
           
-          {/* Email Verification Screen Block */}
+          {/* Email Verification Screen Block with OTP Input */}
           {showEmailVerificationScreen ? (
             <div className="space-y-6 text-center animate-fadeIn">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-brand-600 border border-indigo-100 shadow-premium relative">
@@ -381,41 +486,84 @@ export default function AuthCard() {
 
               <div className="space-y-2">
                 <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-                  Validez votre email
+                  Code de vérification envoyé !
                 </h2>
                 <p className="text-xs md:text-sm text-slate-500 font-semibold leading-relaxed">
-                  Un email de confirmation sécurisé a été envoyé à :<br />
+                  Nous avons envoyé un e-mail avec un code de vérification à :<br />
                   <span className="text-slate-900 font-bold underline decoration-brand-200 decoration-2 underline-offset-4">{registeredEmail}</span>
                 </p>
               </div>
 
-              <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-premium text-left space-y-4">
-                <div className="flex gap-3 text-xs text-slate-600 leading-relaxed font-medium">
-                  <Info className="h-5 w-5 text-brand-600 shrink-0 mt-0.5" />
-                  <p>
-                    Veuillez cliquer sur le lien présent dans l&apos;email pour activer votre compte. Après validation, vous serez automatiquement redirigé vers la configuration de votre entreprise.
-                  </p>
+              {/* Alert Notifications for verification */}
+              {verificationError && (
+                <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex gap-3 text-xs text-rose-600 font-medium text-left animate-fadeIn">
+                  <AlertCircle className="h-4.5 w-4.5 shrink-0 text-rose-500 mt-0.5" />
+                  <span>{verificationError}</span>
                 </div>
-                
-                <div className="border-t border-slate-100 pt-4">
-                  <p className="text-xs font-bold text-slate-700 mb-2">Instructions supplémentaires :</p>
-                  <ul className="list-disc list-inside text-[11px] text-slate-500 space-y-1.5 font-medium">
-                    <li>Vérifiez vos dossiers <strong>Spams</strong> ou <strong>Courriers indésirables</strong>.</li>
-                    <li>L&apos;expéditeur du message est <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px] text-brand-600 font-semibold">noreply@supabase.co</code> (ou le nom de domaine de votre projet).</li>
-                    <li>Le lien de confirmation est valable pendant 24 heures.</li>
-                  </ul>
+              )}
+
+              {verificationSuccess && (
+                <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex gap-3 text-xs text-emerald-700 font-semibold text-left animate-fadeIn">
+                  <CheckCircle className="h-4.5 w-4.5 shrink-0 text-emerald-600 mt-0.5" />
+                  <span>{verificationSuccess}</span>
+                </div>
+              )}
+
+              {/* Formulaire de saisie du Code OTP */}
+              <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-premium text-left space-y-4">
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Saisissez le code à 6 chiffres
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="123456"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9a-zA-Z]/g, ''))}
+                      className="w-full text-center tracking-[0.4em] font-mono text-xl py-3.5 px-4 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-slate-50/50 font-bold text-slate-900 shadow-inner"
+                      required
+                      disabled={verifyingOtp}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={verifyingOtp || otpCode.trim().length < 6}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-lg shadow-brand-600/15 disabled:opacity-50"
+                  >
+                    {verifyingOtp ? 'Vérification en cours...' : 'Valider mon compte'}
+                    {!verifyingOtp && <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </form>
+
+                <div className="border-t border-slate-100 pt-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="text-slate-500">Vous n&apos;avez pas reçu le code ?</span>
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={resendingOtp}
+                      className="text-brand-600 font-bold hover:text-brand-700 transition-colors disabled:opacity-50"
+                    >
+                      {resendingOtp ? 'Envoi...' : 'Renvoyer le code'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
+              {/* Security info & fallback actions */}
               <div className="space-y-3 pt-2">
                 <a
                   href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(registeredEmail)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-lg shadow-brand-600/15"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
                 >
-                  Ouvrir ma boîte mail
-                  <ArrowRight className="h-4 w-4" />
+                  <Mail className="h-4 w-4 text-brand-600" />
+                  Ouvrir ma boîte Gmail
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
                 </a>
                 <button
                   type="button"
@@ -423,8 +571,9 @@ export default function AuthCard() {
                     setShowEmailVerificationScreen(false);
                     setActiveTab('login');
                   }}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-transparent py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
                 >
+                  <ChevronLeft className="h-4 w-4" />
                   Retour à la page de connexion
                 </button>
               </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Receipt, Sparkles, Shield, Rocket, HelpCircle, Loader2 } from 'lucide-react';
+import { Check, Sparkles, Shield, Rocket, HelpCircle, Loader2 } from 'lucide-react';
 import { getAbonnement, updateMockAbonnement } from '@/lib/actions/db';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { Abonnement } from '@/lib/types';
@@ -53,7 +53,7 @@ export default function AbonnementPage() {
     if (!isSupabase) {
       setTimeout(async () => {
         const nextSub = await updateMockAbonnement({
-          plan: planKey as any,
+          plan: planKey as Abonnement['plan'],
           statut: 'actif',
           date_debut_abonnement: new Date().toISOString(),
           date_prochaine_facturation: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -103,11 +103,12 @@ export default function AbonnementPage() {
       priceYearly: 0,
       description: 'Pour tester le service et démarrer en toute sérénité.',
       features: [
-        'Accès complet à toutes les fonctionnalités',
+        '30 jours d\'essai gratuit',
+        '1 seule boutique configurée',
+        'Factures & devis illimités',
         'Calcul automatique TVA 18%',
-        'Facturation 100% en FCFA',
-        'Support standard par email',
-        'Valide pendant 30 jours'
+        'Saisie vocale Wolof, Bambara, Soninké',
+        'Support par email'
       ],
       cta: 'Plan initial'
     },

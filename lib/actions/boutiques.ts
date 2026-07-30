@@ -6,7 +6,8 @@ import {
   mockBoutiques,
   mockProduits,
   mockMouvementsStock,
-  mockVentes
+  mockVentes,
+  mockAbonnement
 } from '@/lib/mock-data';
 import {
   Boutique,
@@ -112,6 +113,20 @@ export async function getBoutiqueById(id: string): Promise<Boutique | null> {
 
 export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?: string; devise?: string }): Promise<Boutique> {
   if (!isSupabaseConfigured()) {
+    const plan = mockAbonnement.plan || 'essai';
+    let maxBoutiques = 1;
+    if (plan === 'pro') {
+      maxBoutiques = 6;
+    } else if (plan === 'entreprise') {
+      maxBoutiques = 999999;
+    } else if (plan === 'starter' || plan === 'essai') {
+      maxBoutiques = 1;
+    }
+
+    if (mockBoutiques.length >= maxBoutiques) {
+      throw new Error(`Pendant votre période d'essai gratuit de 30 jours, vous êtes limité à ${maxBoutiques} seule boutique. Passez au plan Pro pour ajouter jusqu'à 6 boutiques.`);
+    }
+
     const newBoutique: Boutique = {
       id: `bout-${Date.now()}`,
       company_id: 'comp-1',
@@ -160,17 +175,17 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
 
     const boutiqueCount = count || 0;
 
-    let maxBoutiques = 1; // Essai gratuit et Starter : 1 boutique
+    let maxBoutiques = 1; // Essai gratuit (30 jours) et Starter : 1 boutique
     if (plan === 'pro') {
       maxBoutiques = 6;
     } else if (plan === 'entreprise') {
       maxBoutiques = 999999; // Illimité
-    } else if (plan === 'starter') {
+    } else if (plan === 'starter' || plan === 'essai') {
       maxBoutiques = 1;
     }
 
     if (boutiqueCount >= maxBoutiques) {
-      throw new Error(`Votre forfait actuel (${plan.toUpperCase()}) limite la création à un maximum de ${maxBoutiques} boutique(s). Veuillez mettre à niveau votre abonnement.`);
+      throw new Error(`Pendant votre période d'essai gratuit de 30 jours (ou forfait Starter), vous avez droit à 1 seule boutique. Veuillez passer au forfait Pro pour débloquer jusqu'à 6 boutiques.`);
     }
 
     const { data, error } = await supabase

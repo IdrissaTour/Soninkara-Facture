@@ -181,80 +181,142 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Simulated App Dashboard Mockup */}
+          {/* Simulated App Dashboard Mockup with Pro Animations */}
           <div className="lg:col-span-6 relative">
-            <div className="absolute inset-0 bg-gradient-to-tr from-brand-200/40 to-indigo-200/30 rounded-3xl blur-2xl -z-10 transform scale-95" />
+            {/* Glowing Backdrop Aura */}
+            <div className="absolute -inset-2 bg-gradient-to-tr from-brand-600/25 via-indigo-500/20 to-purple-600/25 rounded-3xl blur-3xl -z-10 animate-pulse-glow" />
             
-            {/* Main Mockup Card */}
-            <div className="rounded-3xl bg-white border border-slate-200/80 shadow-2xl p-6 relative overflow-hidden">
-              {/* Toolbar */}
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+            {/* Main Browser Mockup Card */}
+            <div className="rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200/80 shadow-2xl p-5 md:p-6 relative overflow-hidden transition-all duration-500 hover:border-brand-300">
+              {/* Browser Toolbar */}
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-5">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded-full bg-rose-400" />
-                  <span className="h-3 w-3 rounded-full bg-amber-400" />
-                  <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                  <span className="h-3 w-3 rounded-full bg-rose-400/90 shadow-sm" />
+                  <span className="h-3 w-3 rounded-full bg-amber-400/90 shadow-sm" />
+                  <span className="h-3 w-3 rounded-full bg-emerald-400/90 shadow-sm" />
                 </div>
-                <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200/60 rounded-lg px-2.5 py-1">
-                  app.soninkarafacture.sn/dashboard
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 bg-slate-100/80 border border-slate-200/60 rounded-xl px-3 py-1 shadow-inner">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  <span className="tracking-tight text-slate-600">app.soninkarafacture.sn/dashboard</span>
                 </div>
               </div>
 
-              {/* Mockup content */}
+              {/* Dashboard Content Mockup */}
               <div className="space-y-4">
-                {/* Stats cards */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Payé ce mois</span>
-                    <span className="text-base font-extrabold text-slate-900 block mt-1">{formatFCFA(3186000)}</span>
+                {/* Key Metrics Cards with Mini SVG Sparklines */}
+                <div className="grid grid-cols-2 gap-3.5">
+                  {/* Card 1: Paid */}
+                  <div className="p-3.5 bg-gradient-to-b from-slate-50 to-emerald-50/30 rounded-2xl border border-slate-100 space-y-1 relative overflow-hidden group hover:border-emerald-200 transition-all">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payé ce mois</span>
+                      <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-100/80 px-1.5 py-0.5 rounded-full">+18.4%</span>
+                    </div>
+                    <div className="flex items-baseline justify-between pt-0.5">
+                      <span className="text-sm md:text-base font-black text-slate-900">{formatFCFA(3186000)}</span>
+                    </div>
+                    {/* SVG Sparkline */}
+                    <div className="h-5 w-full pt-1">
+                      <svg className="w-full h-full text-emerald-500 stroke-current fill-none overflow-visible" viewBox="0 0 100 25">
+                        <path d="M0,20 Q20,5 40,15 T80,5 T100,10" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
                   </div>
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Factures en retard</span>
-                    <span className="text-base font-extrabold text-rose-600 block mt-1">{formatFCFA(5015000)}</span>
+
+                  {/* Card 2: Overdue */}
+                  <div className="p-3.5 bg-gradient-to-b from-slate-50 to-rose-50/30 rounded-2xl border border-slate-100 space-y-1 relative overflow-hidden group hover:border-rose-200 transition-all">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">En retard</span>
+                      <span className="text-[9px] font-extrabold text-rose-600 bg-rose-100/80 px-1.5 py-0.5 rounded-full">-12%</span>
+                    </div>
+                    <div className="flex items-baseline justify-between pt-0.5">
+                      <span className="text-sm md:text-base font-black text-rose-600">{formatFCFA(5015000)}</span>
+                    </div>
+                    {/* SVG Sparkline */}
+                    <div className="h-5 w-full pt-1">
+                      <svg className="w-full h-full text-rose-400 stroke-current fill-none overflow-visible" viewBox="0 0 100 25">
+                        <path d="M0,8 Q25,22 50,10 T80,18 T100,5" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
 
-                {/* Simulated Invoice creation form snapshot */}
-                <div className="p-4 bg-brand-950 text-white rounded-2xl space-y-3 shadow-md">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-brand-300 uppercase tracking-wider">Création Facture</span>
-                    <span className="text-[10px] font-semibold bg-brand-800 text-white px-2 py-0.5 rounded">TVA 18% Actif</span>
+                {/* Dark Invoice Card with Shimmer Beam */}
+                <div className="p-4 bg-gradient-to-br from-brand-950 via-slate-900 to-indigo-950 text-white rounded-2xl space-y-3.5 shadow-xl border border-brand-800/40 animate-shimmer relative overflow-hidden">
+                  <div className="flex justify-between items-center border-b border-brand-800/50 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-brand-400 animate-ping" />
+                      <span className="text-[10px] font-bold text-brand-200 uppercase tracking-wider">Création Facture Vocale</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-gradient-to-r from-brand-600 to-indigo-600 text-white px-2 py-0.5 rounded-md shadow-sm border border-brand-400/20">
+                      TVA 18% Actif
+                    </span>
                   </div>
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex justify-between text-slate-300">
-                      <span>Prestation Développement</span>
-                      <span className="font-bold text-white">{formatFCFA(1500000)}</span>
+                  
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between text-slate-200 font-medium">
+                      <span>Prestation Développement Web</span>
+                      <span className="font-extrabold text-white">{formatFCFA(1500000)}</span>
                     </div>
                     <div className="flex justify-between text-slate-400 text-[10px]">
-                      <span>TVA (18%)</span>
+                      <span>TVA UEMOA (18%)</span>
                       <span>{formatFCFA(270000)}</span>
                     </div>
-                    <div className="border-t border-brand-850 pt-2 flex justify-between font-extrabold text-brand-300">
-                      <span>Total à payer</span>
-                      <span>{formatFCFA(1770000)}</span>
+                    <div className="border-t border-brand-800/80 pt-2.5 flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-300">Total TTC à émettre</span>
+                      <span className="text-sm font-black bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+                        {formatFCFA(1770000)}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Recent invoices activity */}
-                <div className="space-y-2 pt-2">
-                  <span className="text-[10px] font-bold text-slate-400 block uppercase">Derniers paiements</span>
-                  <div className="flex justify-between items-center p-2 bg-slate-50 rounded-xl border border-slate-100 text-xs">
-                    <span className="font-bold text-slate-800">FAC-2026-005</span>
-                    <span className="font-medium text-slate-600">Orange Money</span>
-                    <span className="font-bold text-emerald-600">{formatFCFA(1062000)}</span>
+                {/* Recent Payments Feed */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dernières Activités</span>
+                    <span className="text-[10px] font-bold text-brand-600 hover:underline cursor-pointer">Tout voir</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2.5 bg-slate-50/90 rounded-xl border border-slate-100 text-xs hover:bg-slate-100/80 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px]">
+                        OM
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-800 block text-xs">FAC-2026-005</span>
+                        <span className="text-[10px] text-slate-400 block">Orange Money Sénégal</span>
+                      </div>
+                    </div>
+                    <span className="font-black text-emerald-600">{formatFCFA(1062000)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Overlap floating elements */}
-            <div className="absolute -right-4 top-1/4 bg-white/95 border border-slate-200 shadow-xl rounded-2xl p-3 flex items-center gap-2.5 animate-bounce-slow">
-              <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                <Check className="h-4.5 w-4.5" />
+            {/* Floating Glassmorphism Badge 1 (Top Right) */}
+            <div className="absolute -right-3 sm:-right-6 top-12 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl rounded-2xl p-3 flex items-center gap-3 animate-float-slow z-20 hover:scale-105 transition-transform">
+              <div className="h-9 w-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+                <Check className="h-5 w-5 stroke-[3]" />
               </div>
               <div>
-                <span className="block text-[10px] text-slate-400 font-bold uppercase">Facture Payée</span>
-                <span className="text-xs font-extrabold text-slate-800">{formatFCFA(2124000)}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase">Facture Payée</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </div>
+                <span className="text-xs font-black text-slate-900 block">{formatFCFA(2124000)}</span>
+              </div>
+            </div>
+
+            {/* Floating Glassmorphism Badge 2 (Bottom Left) */}
+            <div className="absolute -left-3 sm:-left-6 -bottom-4 bg-slate-900/95 backdrop-blur-md border border-slate-800 shadow-2xl rounded-2xl p-3 flex items-center gap-3 animate-float-delayed z-20 hover:scale-105 transition-transform text-white">
+              <div className="h-9 w-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-600/30 shrink-0">
+                <Zap className="h-5 w-5 fill-white text-white" />
+              </div>
+              <div>
+                <span className="text-[10px] text-brand-300 font-bold uppercase block">Paiement Wave Reçu</span>
+                <span className="text-xs font-black text-white block">+ {formatFCFA(450000)}</span>
               </div>
             </div>
           </div>
@@ -262,15 +324,47 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Trust logos Section */}
-      <section className="bg-white border-y border-slate-200/60 py-8">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center space-y-4">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rejoint par plus de 10,000 entrepreneurs en Afrique francophone</p>
-          <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale select-none">
-            <span className="text-sm font-black tracking-tight text-slate-700">TERANGA GROUP</span>
-            <span className="text-sm font-black tracking-tight text-slate-700">BAOBAB CARS</span>
-            <span className="text-sm font-black tracking-tight text-slate-700">KOUROUMA & SONS</span>
-            <span className="text-sm font-black tracking-tight text-slate-700">SAHEL TECH</span>
+      {/* Trust logos Section - Horizontal Slideshow Marquee */}
+      <section className="bg-white border-y border-slate-200/60 py-8 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center space-y-5">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            Rejoint par plus de 10,000 entrepreneurs en Afrique francophone
+          </p>
+          
+          {/* Marquee Container with edge gradients */}
+          <div className="relative w-full overflow-hidden py-2">
+            {/* Left & Right Gradient Fades */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-20 sm:w-32 bg-gradient-to-r from-white to-transparent z-10" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-20 sm:w-32 bg-gradient-to-l from-white to-transparent z-10" />
+
+            {/* Scrolling Track */}
+            <div className="animate-marquee items-center gap-12 sm:gap-16 opacity-60 hover:opacity-100 transition-opacity duration-300 grayscale hover:grayscale-0 select-none">
+              {[
+                'TERANGA GROUP',
+                'BAOBAB CARS',
+                'KOUROUMA & SONS',
+                'SAHEL TECH',
+                'DAKAR LOGISTICS',
+                'ABIDJAN DISTRIB',
+                'SENEGAL TRADING',
+                'BAMAKO IMPEX',
+                'TERANGA GROUP',
+                'BAOBAB CARS',
+                'KOUROUMA & SONS',
+                'SAHEL TECH',
+                'DAKAR LOGISTICS',
+                'ABIDJAN DISTRIB',
+                'SENEGAL TRADING',
+                'BAMAKO IMPEX',
+              ].map((logo, idx) => (
+                <div key={idx} className="flex items-center gap-3 shrink-0 px-4 group cursor-pointer">
+                  <span className="h-2 w-2 rounded-full bg-brand-500/40 group-hover:bg-brand-600 group-hover:scale-125 transition-all" />
+                  <span className="text-sm font-black tracking-tight text-slate-700 group-hover:text-brand-700 transition-colors">
+                    {logo}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

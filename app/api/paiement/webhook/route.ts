@@ -4,7 +4,7 @@ import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    let data: any = {};
+    let data: Record<string, unknown> = {};
 
     // 1. Extraire les données selon le type de contenu (x-www-form-urlencoded ou JSON)
     const contentType = req.headers.get('content-type') || '';

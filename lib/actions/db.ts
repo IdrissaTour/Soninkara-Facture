@@ -744,14 +744,16 @@ export async function getAbonnement(): Promise<Abonnement | null> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return mockAbonnement;
 
-    let { data, error } = await supabase
+    const { data: initialData, error } = await supabase
       .from('abonnements')
       .select('*')
       .eq('utilisateur_id', user.id)
       .maybeSingle();
 
+    let finalData = initialData;
+
     // Auto-create if it doesn't exist
-    if (!data && !error) {
+    if (!initialData && !error) {
       const { data: insertedData, error: insertError } = await supabase
         .from('abonnements')
         .insert({
@@ -764,11 +766,11 @@ export async function getAbonnement(): Promise<Abonnement | null> {
         .single();
 
       if (!insertError && insertedData) {
-        data = insertedData;
+        finalData = insertedData;
       }
     }
 
-    return data as Abonnement;
+    return finalData as Abonnement;
   } catch (err) {
     console.error('Error in getAbonnement:', err);
     return null;

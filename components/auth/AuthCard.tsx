@@ -43,6 +43,40 @@ export default function AuthCard() {
     }
   }, []);
 
+  // Polling automatique pour détecter la confirmation de l'e-mail quand l'utilisateur clique sur le lien envoyé par mail
+  useEffect(() => {
+    if (!showEmailVerificationScreen) return;
+
+    const supabase = createClient();
+    const interval = setInterval(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          clearInterval(interval);
+          setVerificationSuccess("E-mail confirmé avec succès ! Redirection vers votre espace...");
+          
+          const { data: companies } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('owner_id', session.user.id)
+            .limit(1);
+
+          setTimeout(() => {
+            if (!companies || companies.length === 0) {
+              window.location.href = '/onboarding';
+            } else {
+              window.location.href = '/dashboard';
+            }
+          }, 1000);
+        }
+      } catch (err) {
+        console.error("Erreur vérification automatique session", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [showEmailVerificationScreen]);
+
   // Sync activeTab with route pathname transitions
   useEffect(() => {
     if (activeTab !== 'forgot-password') {
@@ -195,6 +229,22 @@ export default function AuthCard() {
         }
         setError(msg);
         setLoading(false);
+        return;
+      }
+
+      if (data?.session && data?.user) {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('owner_id', data.user.id)
+          .limit(1);
+
+        setLoading(false);
+        if (!companies || companies.length === 0) {
+          window.location.href = '/onboarding';
+        } else {
+          window.location.href = '/dashboard';
+        }
         return;
       }
 
@@ -474,7 +524,7 @@ export default function AuthCard() {
         {/* Center Form Container */}
         <div className="my-auto max-w-md w-full mx-auto space-y-8 pt-8 lg:pt-0">
           
-          {/* Email Verification Screen Block with OTP Input */}
+          {/* Email Verification Screen Block */}
           {showEmailVerificationScreen ? (
             <div className="space-y-6 text-center animate-fadeIn">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-brand-600 border border-indigo-100 shadow-premium relative">
@@ -487,10 +537,10 @@ export default function AuthCard() {
 
               <div className="space-y-2">
                 <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-                  Code de vérification envoyé !
+                  Confirmez votre adresse e-mail !
                 </h2>
                 <p className="text-xs md:text-sm text-slate-500 font-semibold leading-relaxed">
-                  Nous avons envoyé un e-mail avec un code de vérification à :<br />
+                  Un e-mail de vérification a été envoyé à :<br />
                   <span className="text-slate-900 font-bold underline decoration-brand-200 decoration-2 underline-offset-4">{registeredEmail}</span>
                 </p>
               </div>
@@ -510,62 +560,85 @@ export default function AuthCard() {
                 </div>
               )}
 
-              {/* Formulaire de saisie du Code OTP */}
-              <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-premium text-left space-y-4">
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Saisissez le code à 6 chiffres
-                    </label>
+              {/* Instruction Box */}
+              <div className="bg-white border border-slate-200/80 p-6 rounded-2xl shadow-premium text-left space-y-5">
+                <div className="p-4 rounded-xl bg-brand-50/70 border border-brand-100 space-y-2">
+                  <h3 className="text-xs font-bold text-brand-950 flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-brand-600" />
+                    Instructions pour activer votre compte :
+                  </h3>
+                  <ol className="text-xs text-slate-700 space-y-2 list-decimal list-inside font-medium leading-relaxed pl-1">
+                    <li>Ouvrez la boîte de réception de <strong>{registeredEmail}</strong>.</li>
+                    <li>Cliquez sur le bouton <strong>&quot;Confirmer mon adresse e-mail&quot;</strong> figurant dans le message.</li>
+                    <li>Revenez ici : cette page se redirigera automatiquement !</li>
+                  </ol>
+                </div>
+
+                {/* Direct Action buttons to Mail Providers */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <a
+                    href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(registeredEmail)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                  >
+                    <Mail className="h-4 w-4 text-rose-500 shrink-0" />
+                    Ouvrir Gmail
+                  </a>
+                  <a
+                    href="https://outlook.live.com/mail/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                  >
+                    <Mail className="h-4 w-4 text-blue-500 shrink-0" />
+                    Ouvrir Outlook
+                  </a>
+                </div>
+
+                {/* Saisie alternative par code OTP à 6 chiffres */}
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      Ou saisissez le code à 6 chiffres (si vous avez reçu un code)
+                    </span>
+                  </div>
+                  <form onSubmit={handleVerifyOtp} className="space-y-3">
                     <input
                       type="text"
                       maxLength={6}
                       placeholder="123456"
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9a-zA-Z]/g, ''))}
-                      className="w-full text-center tracking-[0.4em] font-mono text-xl py-3.5 px-4 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-slate-50/50 font-bold text-slate-900 shadow-inner"
-                      required
+                      className="w-full text-center tracking-[0.4em] font-mono text-xl py-3 px-4 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-slate-50/50 font-bold text-slate-900 shadow-inner"
                       disabled={verifyingOtp}
                     />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={verifyingOtp || otpCode.trim().length < 6}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-lg shadow-brand-600/15 disabled:opacity-50"
-                  >
-                    {verifyingOtp ? 'Vérification en cours...' : 'Valider mon compte'}
-                    {!verifyingOtp && <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </form>
-
-                <div className="border-t border-slate-100 pt-4 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="text-slate-500">Vous n&apos;avez pas reçu le code ?</span>
                     <button
-                      type="button"
-                      onClick={handleResendOtp}
-                      disabled={resendingOtp}
-                      className="text-brand-600 font-bold hover:text-brand-700 transition-colors disabled:opacity-50"
+                      type="submit"
+                      disabled={verifyingOtp || otpCode.trim().length < 6}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 text-xs font-bold text-white hover:bg-brand-700 transition-all duration-200 shadow-md shadow-brand-600/15 disabled:opacity-50"
                     >
-                      {resendingOtp ? 'Envoi...' : 'Renvoyer le code'}
+                      {verifyingOtp ? 'Vérification en cours...' : 'Valider avec le code à 6 chiffres'}
+                      {!verifyingOtp && <ArrowRight className="h-4 w-4" />}
                     </button>
-                  </div>
+                  </form>
+                </div>
+
+                <div className="border-t border-slate-100 pt-3 flex items-center justify-between text-xs font-medium">
+                  <span className="text-slate-500">Pas encore reçu l&apos;e-mail ?</span>
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendingOtp}
+                    className="text-brand-600 font-bold hover:text-brand-700 transition-colors disabled:opacity-50"
+                  >
+                    {resendingOtp ? 'Envoi...' : 'Renvoyer l&apos;e-mail'}
+                  </button>
                 </div>
               </div>
 
-              {/* Security info & fallback actions */}
-              <div className="space-y-3 pt-2">
-                <a
-                  href={`https://mail.google.com/mail/u/0/#search/${encodeURIComponent(registeredEmail)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                  <Mail className="h-4 w-4 text-brand-600" />
-                  Ouvrir ma boîte Gmail
-                  <ArrowRight className="h-4 w-4 text-slate-400" />
-                </a>
+              {/* Back to login link */}
+              <div className="pt-1">
                 <button
                   type="button"
                   onClick={() => {

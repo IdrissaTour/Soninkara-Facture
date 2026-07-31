@@ -355,6 +355,7 @@ export default function AuthCard() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
@@ -783,8 +784,8 @@ export default function AuthCard() {
                 </form>
               )}
 
-              {/* Google OAuth Option (Placed cleanly at bottom of forms) */}
-              {activeTab !== 'forgot-password' && (
+              {/* Option Google OAuth désactivée temporairement (à réactiver ultérieurement si besoin) */}
+              {/* {activeTab !== 'forgot-password' && (
                 <div className="space-y-3 pt-2">
                   <div className="relative flex items-center justify-center">
                     <div className="absolute inset-0 flex items-center">
@@ -822,7 +823,7 @@ export default function AuthCard() {
                     <span>Continuer avec Google</span>
                   </button>
                 </div>
-              )}
+              )} */}
 
 
 

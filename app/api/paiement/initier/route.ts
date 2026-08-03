@@ -26,11 +26,14 @@ export async function POST(req: NextRequest) {
     // Utiliser NEXT_PUBLIC_APP_URL uniquement si ce n'est pas un domaine localhost. Sinon, utiliser l'origine détectée en direct.
     const appUrl = (envAppUrl && !envAppUrl.includes('localhost')) ? envAppUrl : detectedOrigin;
 
-    const apiKey = process.env.PAYTECH_API_KEY;
-    const apiSecret = process.env.PAYTECH_SECRET_KEY;
+    const DEFAULT_PAYTECH_KEY = '26803f2bb0558c15dc26aa68e905456906bd5e0af0f3df5db473ef90f1350b8a';
+    const DEFAULT_PAYTECH_SECRET = 'c784d6ae7a3e5714df901ef9fa3151e134c9e9bb2abd6759ed754b9eee69d98f';
+
+    const apiKey = process.env.PAYTECH_API_KEY || DEFAULT_PAYTECH_KEY;
+    const apiSecret = process.env.PAYTECH_SECRET_KEY || DEFAULT_PAYTECH_SECRET;
     const paytechEnv = process.env.PAYTECH_ENV || 'test';
 
-    // Déterminer si nous devons simuler le paiement (clés de production/test manquantes ou par défaut)
+    // Déterminer si nous devons simuler le paiement (clés explicitement désactivées)
     const isMockPayment = !apiKey || !apiSecret || 
       apiKey === 'votre_api_key_ici' || 
       apiSecret === 'votre_secret_key_ici' ||
@@ -40,23 +43,7 @@ export async function POST(req: NextRequest) {
     if (isMockPayment) {
       console.log(`[Mode Simulation de Paiement] Initiation d'un paiement simulé pour le plan ${plan.toUpperCase()}...`);
       
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      let dbClient;
-      let usingAdmin = true;
-
-      if (!serviceRoleKey || serviceRoleKey === 'votre_secret_key_ici' || serviceRoleKey.trim() === '') {
-        console.warn(`[Mode Simulation de Paiement] SUPABASE_SERVICE_ROLE_KEY non configurée. Tentative avec le client utilisateur.`);
-        dbClient = supabase;
-        usingAdmin = false;
-      } else {
-        try {
-          dbClient = createAdminClient();
-        } catch (adminErr) {
-          console.warn(`[Mode Simulation de Paiement] Échec de l'initialisation du client admin, repli sur le client utilisateur:`, adminErr);
-          dbClient = supabase;
-          usingAdmin = false;
-        }
-      }
+      const dbClient = createAdminClient();
       
       // 1. Enregistrer la transaction immédiatement comme payée
       const { error: dbError } = await dbClient.from('transactions_paiement').insert({

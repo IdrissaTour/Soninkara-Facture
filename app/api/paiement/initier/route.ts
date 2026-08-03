@@ -18,12 +18,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Paramètres invalides ou manquants' }, { status: 400 });
     }
 
-    const utilisateurId = user.id;
-    const refCommande = `SF-${Date.now()}-${utilisateurId.slice(0, 8)}`;
-    const origin = req.nextUrl.origin;
-    
-    // Déterminer l'URL de base (de préférence via variables d'environnement, sinon dynamiquement)
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    const proto = req.headers.get('x-forwarded-proto') || (req.nextUrl.protocol ? req.nextUrl.protocol.replace(':', '') : 'https');
+    const detectedOrigin = host ? `${proto}://${host}` : req.nextUrl.origin;
+
+    const envAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    // Utiliser NEXT_PUBLIC_APP_URL uniquement si ce n'est pas un domaine localhost. Sinon, utiliser l'origine détectée en direct.
+    const appUrl = (envAppUrl && !envAppUrl.includes('localhost')) ? envAppUrl : detectedOrigin;
 
     const apiKey = process.env.PAYTECH_API_KEY;
     const apiSecret = process.env.PAYTECH_SECRET_KEY;

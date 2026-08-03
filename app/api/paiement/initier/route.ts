@@ -170,8 +170,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Enregistrement de la transaction en attente dans la base de données
-    const supabaseAdmin = createAdminClient();
-    const { error: dbError } = await supabaseAdmin.from('transactions_paiement').insert({
+    let dbAdminClient = supabase;
+    try {
+      dbAdminClient = createAdminClient();
+    } catch (adminErr) {
+      console.warn('SUPABASE_SERVICE_ROLE_KEY non configurée pour la transaction en attente, tentative avec le client utilisateur:', adminErr);
+    }
+
+    const { error: dbError } = await dbAdminClient.from('transactions_paiement').insert({
       transaction_id: refCommande,
       utilisateur_id: utilisateurId,
       plan,

@@ -40,6 +40,15 @@ export default function AbonnementPage() {
   }, []);
 
   const handleSelectPlan = async (planKey: string, price: number) => {
+    if (currentAbonnement?.plan === planKey) {
+      setSuccessMsg(`Vous êtes déjà actuellement abonné au plan ${planKey.toUpperCase()}.`);
+      setErrorMsg(null);
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+
     if (price === 0) {
       // Free trial is not purchasable
       return;
@@ -64,6 +73,9 @@ export default function AbonnementPage() {
         setCurrentAbonnement(nextSub);
         setSuccessMsg(`[Mode Démo] Abonnement au plan ${planKey.toUpperCase()} activé avec succès !`);
         setPaymentLoading(null);
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       }, 1000);
       return;
     }
@@ -91,6 +103,9 @@ export default function AbonnementPage() {
       console.error(err);
       setErrorMsg(err instanceof Error ? err.message : "Une erreur est survenue lors de l'initialisation du paiement.");
       setPaymentLoading(null);
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 

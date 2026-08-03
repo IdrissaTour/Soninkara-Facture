@@ -61,11 +61,6 @@ export async function POST(req: NextRequest) {
 
       if (dbError) {
         console.error('Erreur d\'insertion de la transaction simulée en BDD:', dbError);
-        if (!usingAdmin) {
-          return NextResponse.json({ 
-            error: 'Clé SUPABASE_SERVICE_ROLE_KEY manquante dans votre fichier .env.local. Veuillez configurer cette variable pour enregistrer les abonnements.' 
-          }, { status: 400 });
-        }
         return NextResponse.json({ error: 'Erreur interne lors de la sauvegarde de la transaction' }, { status: 500 });
       }
 
@@ -98,11 +93,6 @@ export async function POST(req: NextRequest) {
 
       if (subError) {
         console.error('Erreur lors de l\'activation de l\'abonnement simulé:', subError);
-        if (!usingAdmin) {
-          return NextResponse.json({ 
-            error: 'Clé SUPABASE_SERVICE_ROLE_KEY manquante dans votre fichier .env.local. Veuillez configurer cette variable pour activer les abonnements.' 
-          }, { status: 400 });
-        }
         return NextResponse.json({ error: "Erreur interne lors de l'activation de l'abonnement" }, { status: 500 });
       }
 

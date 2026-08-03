@@ -223,7 +223,23 @@ export default function AuthCard() {
       if (authError) {
         let msg = authError.message;
         if (msg.includes('already registered') || msg.includes('User already exists')) {
-          msg = "Cette adresse e-mail est déjà associée à un compte. Veuillez vous connecter.";
+          // Si le compte existe déjà dans Supabase Auth (ex: inscription précédente non confirmée), 
+          // on renvoie un e-mail de confirmation et on bascule directement sur l'écran de vérification.
+          await supabase.auth.resend({
+            type: 'signup',
+            email: email,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
+            },
+          }).catch(() => {});
+
+          setRegisteredEmail(email);
+          setOtpCode('');
+          setVerificationError(null);
+          setVerificationSuccess("Un compte existe pour cet e-mail. Un code et un lien de confirmation ont été envoyés à votre adresse. Veuillez valider votre compte ci-dessous.");
+          setLoading(false);
+          setShowEmailVerificationScreen(true);
+          return;
         } else if (msg.includes('Password should be at least')) {
           msg = "Le mot de passe doit contenir au moins 6 caractères.";
         }
@@ -248,23 +264,13 @@ export default function AuthCard() {
         return;
       }
 
-      if (data?.user) {
-        if (data.user.identities && data.user.identities.length === 0) {
-          setError("Cette adresse e-mail est déjà associée à un compte. Veuillez vous connecter ou réinitialiser votre mot de passe.");
-          setLoading(false);
-          return;
-        }
-
-        setRegisteredEmail(email);
-        setOtpCode('');
-        setVerificationError(null);
-        setVerificationSuccess(null);
-        setLoading(false);
-        setShowEmailVerificationScreen(true);
-      } else {
-        setError("Cette adresse e-mail est déjà associée à un compte. Veuillez vous connecter.");
-        setLoading(false);
-      }
+      // Basculer systématiquement vers l'écran de vérification d'e-mail
+      setRegisteredEmail(email);
+      setOtpCode('');
+      setVerificationError(null);
+      setVerificationSuccess(null);
+      setLoading(false);
+      setShowEmailVerificationScreen(true);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inattendue est survenue.';
       setError(errorMsg);

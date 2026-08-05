@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, TrendingDown, Shield, Store, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings, LogOut, TrendingDown, Shield, Store, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/lib/supabase/client';
 
@@ -50,10 +50,8 @@ export default function Sidebar({
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-slate-800 bg-slate-950 text-slate-200 lg:flex z-20">
       {/* Brand Header */}
-      <div className="flex h-16 items-center gap-2 px-6 border-b border-slate-900">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white shadow-md shadow-brand-500/20">
-          <Receipt className="h-5 w-5" />
-        </div>
+      <div className="flex h-16 items-center gap-2.5 px-6 border-b border-slate-900">
+        <img src="/logo.png" alt="Soninkara Facture" className="h-9 w-9 rounded-lg object-contain shadow-md shadow-brand-500/20" />
         <div>
           <span className="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
             Soninkara Facture

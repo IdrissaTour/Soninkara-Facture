@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import TopBar from '@/components/layout/TopBar';
 import MobileNav from '@/components/layout/MobileNav';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import { getCompany, getAbonnement } from '@/lib/actions/db';
 import { checkAdminStatus } from '@/lib/actions/admin';
 import { BanniereEssai } from '@/components/subscription/BanniereEssai';
@@ -81,11 +82,14 @@ export default function DashboardLayout({
         <TopBar onMenuOpen={() => setMobileMenuOpen(true)} companyName={companyName} />
 
         {/* Dashboard Pages Content */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
           <BanniereEssai abonnement={abonnement} />
           {children}
         </main>
       </div>
+
+      {/* Fixed Bottom Navigation Bar for Mobile (hidden on desktop lg) */}
+      <MobileBottomNav />
     </div>
   );
 }

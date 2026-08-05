@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, Receipt, X, TrendingDown, Shield, Store, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Settings, LogOut, X, TrendingDown, Shield, Store, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/lib/supabase/client';
 
@@ -65,10 +65,8 @@ export default function MobileNav({
       <div className="fixed inset-y-0 left-0 flex w-full max-w-xs flex-col bg-slate-950 text-slate-200 shadow-2xl transition-transform duration-300">
         {/* Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-slate-900">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white">
-              <Receipt className="h-5 w-5" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img src="/logo.png" alt="Soninkara Facture" className="h-9 w-9 rounded-lg object-contain shadow-md shadow-brand-500/20" />
             <div>
               <span className="text-lg font-bold text-white">Soninkara Facture</span>
               <span className="block text-[8px] text-slate-500 font-medium tracking-wider uppercase">

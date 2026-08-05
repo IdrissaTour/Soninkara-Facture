@@ -1,10 +1,38 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { checkRateLimit, getClientIpFromHeaders } from '@/lib/rate-limit';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request,
   });
+
+  // Contrôle strict du Rate Limiting pour les tentatives d'authentification et API auth
+  const isAuthPath = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup');
+  const isApiAuthPath = request.nextUrl.pathname.startsWith('/api/auth') && request.nextUrl.pathname !== '/api/auth/rate-limit';
+
+  if ((isAuthPath && request.method === 'POST') || isApiAuthPath) {
+    const ip = getClientIpFromHeaders(request.headers);
+    const rateLimitKey = `mw_auth_${ip}`;
+    const limitResult = checkRateLimit(rateLimitKey, 5, 60000);
+
+    if (!limitResult.success) {
+      return NextResponse.json(
+        {
+          error: `Trop de tentatives (max 5 par minute). Votre IP est temporairement bloquée pendant ${limitResult.resetSeconds} secondes afin d'empêcher les attaques par force brute.`,
+          retryAfter: limitResult.resetSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(limitResult.resetSeconds),
+            'X-RateLimit-Limit': '5',
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -111,5 +139,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup'],
+  matcher: ['/dashboard/:path*', '/login', '/signup', '/api/auth/:path*'],
 };
+

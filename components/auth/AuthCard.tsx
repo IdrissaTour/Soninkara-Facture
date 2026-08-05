@@ -110,11 +110,39 @@ export default function AuthCard() {
 
   const isSupabaseConfigured = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
+  const checkRateLimitBeforeAuth = async (actionName: string): Promise<{ allowed: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/rate-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: actionName }),
+      });
+      if (res.status === 429) {
+        const data = await res.json();
+        return {
+          allowed: false,
+          error: data.error || 'Trop de tentatives (max 5 par minute). Votre IP est temporairement bloquée pendant 60 secondes pour des raisons de sécurité.',
+        };
+      }
+      return { allowed: true };
+    } catch {
+      return { allowed: true };
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(null);
+
+    // Contrôle Anti Brute-Force (Rate Limit: 5 par min par IP)
+    const rateCheck = await checkRateLimitBeforeAuth('login');
+    if (!rateCheck.allowed) {
+      setError(rateCheck.error || 'Trop de tentatives de connexion.');
+      setLoading(false);
+      return;
+    }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -191,6 +219,14 @@ export default function AuthCard() {
     setLoading(true);
     setError(null);
     setSuccess(null);
+
+    // Contrôle Anti Brute-Force (Rate Limit: 5 par min par IP)
+    const rateCheck = await checkRateLimitBeforeAuth('signup');
+    if (!rateCheck.allowed) {
+      setError(rateCheck.error || 'Trop de tentatives de création de compte.');
+      setLoading(false);
+      return;
+    }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -288,6 +324,14 @@ export default function AuthCard() {
     setVerifyingOtp(true);
     setVerificationError(null);
     setVerificationSuccess(null);
+
+    // Contrôle Anti Brute-Force (Rate Limit: 5 par min par IP)
+    const rateCheck = await checkRateLimitBeforeAuth('verify_otp');
+    if (!rateCheck.allowed) {
+      setVerificationError(rateCheck.error || 'Trop de tentatives de vérification de code.');
+      setVerifyingOtp(false);
+      return;
+    }
 
     try {
       const supabase = createClient();

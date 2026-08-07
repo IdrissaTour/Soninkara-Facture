@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { CompanySummary } from '@/lib/types';
 
+import { createAdminClient } from '@/lib/supabase/admin';
+
 // Helper to check if Supabase is fully configured
 function isSupabaseConfigured() {
   return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -51,6 +53,78 @@ export async function checkAdminStatus(): Promise<boolean> {
   }
 }
 
+// Memory store for mock mode status toggles
+const mockStatusStore: Record<string, { statut: 'actif' | 'expire'; plan: 'essai' | 'starter' | 'pro' | 'entreprise' }> = {
+  'user-123': { statut: 'actif', plan: 'pro' },
+  'user-456': { statut: 'actif', plan: 'starter' },
+  'user-789': { statut: 'expire', plan: 'essai' },
+  'user-101': { statut: 'actif', plan: 'entreprise' },
+};
+
+/**
+ * Toggles or updates the subscription status of a company account (Admin action)
+ */
+export async function toggleCompanyAccountStatusAdmin({
+  ownerId,
+  newStatut,
+  plan = 'pro'
+}: {
+  ownerId: string;
+  newStatut: 'actif' | 'expire';
+  plan?: 'essai' | 'starter' | 'pro' | 'entreprise';
+}): Promise<{ success: boolean; message: string }> {
+  if (!isSupabaseConfigured()) {
+    mockStatusStore[ownerId] = { statut: newStatut, plan };
+    return { 
+      success: true, 
+      message: newStatut === 'actif' 
+        ? `[Mode Démo] Compte activé avec succès (Plan ${plan.toUpperCase()})` 
+        : '[Mode Démo] Compte désactivé avec succès.' 
+    };
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user || !isUserAdmin(user.email)) {
+      throw new Error('Non autorisé : Droits administrateur requis.');
+    }
+
+    const supabaseAdmin = createAdminClient();
+
+    const dateProchaine = new Date();
+    dateProchaine.setFullYear(dateProchaine.getFullYear() + 1);
+
+    const { error } = await supabaseAdmin
+      .from('abonnements')
+      .upsert({
+        utilisateur_id: ownerId,
+        statut: newStatut,
+        plan: newStatut === 'actif' ? plan : 'essai',
+        statut_paiement: newStatut === 'actif' ? 'paye' : 'echec',
+        date_prochaine_facturation: newStatut === 'actif' ? dateProchaine.toISOString() : null,
+      }, {
+        onConflict: 'utilisateur_id'
+      });
+
+    if (error) {
+      console.error('Erreur lors du changement de statut d\'abonnement:', error);
+      throw new Error(error.message);
+    }
+
+    return { 
+      success: true, 
+      message: newStatut === 'actif' 
+        ? `Compte activé avec succès (Plan ${plan.toUpperCase()})` 
+        : 'Compte désactivé / suspendu avec succès.' 
+    };
+  } catch (err) {
+    console.error('Exception toggleCompanyAccountStatusAdmin:', err);
+    throw err;
+  }
+}
+
 /**
  * Fetches summaries of all registered companies (Admin/Developer dashboard data)
  */
@@ -70,6 +144,8 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         invoice_count: 6,
         total_invoiced: 8500000,
         boutique_count: 2,
+        statut_abonnement: mockStatusStore['user-123']?.statut || 'actif',
+        plan_abonnement: mockStatusStore['user-123']?.plan || 'pro',
       },
       {
         id: 'comp-2',
@@ -83,6 +159,8 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         invoice_count: 12,
         total_invoiced: 3400000,
         boutique_count: 1,
+        statut_abonnement: mockStatusStore['user-456']?.statut || 'actif',
+        plan_abonnement: mockStatusStore['user-456']?.plan || 'starter',
       },
       {
         id: 'comp-3',
@@ -96,6 +174,8 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         invoice_count: 24,
         total_invoiced: 18900000,
         boutique_count: 3,
+        statut_abonnement: mockStatusStore['user-789']?.statut || 'expire',
+        plan_abonnement: mockStatusStore['user-789']?.plan || 'essai',
       },
       {
         id: 'comp-4',
@@ -109,6 +189,8 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
         invoice_count: 9,
         total_invoiced: 5200000,
         boutique_count: 0,
+        statut_abonnement: mockStatusStore['user-101']?.statut || 'actif',
+        plan_abonnement: mockStatusStore['user-101']?.plan || 'entreprise',
       },
     ];
   }
@@ -144,19 +226,41 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
 
     const rows = (data || []) as DbSummary[];
 
-    return rows.map((item) => ({
-      id: item.id,
-      name: item.name,
-      email: item.email,
-      phone: item.phone,
-      address: item.address,
-      owner_id: item.owner_id,
-      created_at: item.created_at,
-      client_count: Number(item.client_count || 0),
-      invoice_count: Number(item.invoice_count || 0),
-      total_invoiced: Number(item.total_invoiced || 0),
-      boutique_count: Number(item.boutique_count || 0),
-    }));
+    // Fetch subscription status for all companies
+    let subMap = new Map<string, { plan: string; statut: string }>();
+    try {
+      const supabaseAdmin = createAdminClient();
+      const { data: subs } = await supabaseAdmin
+        .from('abonnements')
+        .select('utilisateur_id, plan, statut');
+      
+      if (subs) {
+        subs.forEach((s) => {
+          subMap.set(s.utilisateur_id, { plan: s.plan, statut: s.statut });
+        });
+      }
+    } catch (subErr) {
+      console.warn('Erreur lors de la récupération des abonnements admin:', subErr);
+    }
+
+    return rows.map((item) => {
+      const sub = subMap.get(item.owner_id);
+      return {
+        id: item.id,
+        name: item.name,
+        email: item.email,
+        phone: item.phone,
+        address: item.address,
+        owner_id: item.owner_id,
+        created_at: item.created_at,
+        client_count: Number(item.client_count || 0),
+        invoice_count: Number(item.invoice_count || 0),
+        total_invoiced: Number(item.total_invoiced || 0),
+        boutique_count: Number(item.boutique_count || 0),
+        statut_abonnement: (sub?.statut as CompanySummary['statut_abonnement']) || 'actif',
+        plan_abonnement: (sub?.plan as CompanySummary['plan_abonnement']) || 'essai',
+      };
+    });
   } catch (err) {
     console.error('Error in getCompaniesSummaryAdmin:', err);
     throw err;

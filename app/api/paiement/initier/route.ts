@@ -34,10 +34,11 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.PAYTECH_API_KEY || DEFAULT_PAYTECH_KEY;
     const apiSecret = process.env.PAYTECH_SECRET_KEY || DEFAULT_PAYTECH_SECRET;
-    const paytechEnv = process.env.PAYTECH_ENV || 'test';
+    const paytechEnv = process.env.PAYTECH_ENV || 'prod';
 
     // Déterminer si nous devons simuler le paiement (clés explicitement désactivées)
-    const isMockPayment = !apiKey || !apiSecret || 
+    const isMockPayment = process.env.PAYTECH_SIMULATE === 'true' || 
+      !apiKey || !apiSecret || 
       apiKey === 'votre_api_key_ici' || 
       apiSecret === 'votre_secret_key_ici' ||
       apiKey.trim() === '' ||
@@ -130,7 +131,6 @@ export async function POST(req: NextRequest) {
         ipn_url: ipnUrl,
         success_url: `${appUrl}/dashboard/abonnement?succes=true`,
         cancel_url: `${appUrl}/dashboard/abonnement?annule=true`,
-        target_payment: 'Orange Money, Wave',
       }),
     });
 

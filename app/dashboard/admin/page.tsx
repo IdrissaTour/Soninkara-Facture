@@ -18,9 +18,18 @@ import {
   Calendar,
   Building,
   Key,
-  Store
+  Store,
+  CheckCircle2,
+  XCircle,
+  Power,
+  PowerOff
 } from 'lucide-react';
-import { getCompaniesSummaryAdmin, checkAdminStatus, verifyAdminPasscode } from '@/lib/actions/admin';
+import { 
+  getCompaniesSummaryAdmin, 
+  checkAdminStatus, 
+  verifyAdminPasscode,
+  toggleCompanyAccountStatusAdmin 
+} from '@/lib/actions/admin';
 import { CompanySummary } from '@/lib/types';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 
@@ -32,6 +41,8 @@ export default function AdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<CompanySummary | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Double security states
   const [checkingAdmin, setCheckingAdmin] = useState(true);
@@ -104,6 +115,54 @@ export default function AdminDashboardPage() {
       setError(err instanceof Error ? err.message : 'Erreur de rafraîchissement.');
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleToggleAccount = async (
+    company: CompanySummary, 
+    newStatut: 'actif' | 'expire',
+    targetPlan: 'starter' | 'pro' | 'entreprise' = 'pro'
+  ) => {
+    setTogglingId(company.id);
+    setActionFeedback(null);
+    try {
+      const res = await toggleCompanyAccountStatusAdmin({
+        ownerId: company.owner_id,
+        newStatut,
+        plan: targetPlan,
+      });
+      if (res.success) {
+        setActionFeedback({ type: 'success', message: res.message });
+        setSummaries((prev) =>
+          prev.map((c) =>
+            c.id === company.id
+              ? {
+                  ...c,
+                  statut_abonnement: newStatut,
+                  plan_abonnement: newStatut === 'actif' ? targetPlan : 'essai',
+                }
+              : c
+          )
+        );
+        if (selectedCompany && selectedCompany.id === company.id) {
+          setSelectedCompany((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  statut_abonnement: newStatut,
+                  plan_abonnement: newStatut === 'actif' ? targetPlan : 'essai',
+                }
+              : null
+          );
+        }
+      }
+    } catch (err) {
+      setActionFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erreur lors de la modification.',
+      });
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -310,6 +369,29 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {actionFeedback && (
+        <div className={`rounded-2xl border p-4 text-xs font-bold flex items-center justify-between animate-fadeIn ${
+          actionFeedback.type === 'success'
+            ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
+            : 'bg-rose-50 border-rose-100 text-rose-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <XCircle className="h-4 w-4 text-rose-600" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button
+            onClick={() => setActionFeedback(null)}
+            className="text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Main accounts table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-premium">
         {/* Table actions bar */}
@@ -359,12 +441,12 @@ export default function AdminDashboardPage() {
                 <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
                   <th className="py-3 px-4">Entreprise</th>
                   <th className="py-3 px-4">Propriétaire</th>
+                  <th className="py-3 px-4 text-center">Statut</th>
                   <th className="py-3 px-4 text-center">Clients</th>
                   <th className="py-3 px-4 text-center">Boutiques</th>
                   <th className="py-3 px-4 text-center">Factures</th>
                   <th className="py-3 px-4 text-right">Montant Facturé</th>
-                  <th className="py-3 px-4 text-right">Inscrit le</th>
-                  <th className="py-3 px-4 text-center">Actions</th>
+                  <th className="py-3 px-4 text-center">Gestion Compte</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100/60 text-sm">
@@ -389,6 +471,18 @@ export default function AdminDashboardPage() {
                       <p className="text-slate-600 truncate max-w-[180px]">{company.email || 'Pas d\'email'}</p>
                       <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{company.phone || 'Pas de tél'}</p>
                     </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                        company.statut_abonnement === 'actif'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : 'bg-rose-50 text-rose-700 border-rose-100'
+                      }`}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {company.statut_abonnement === 'actif'
+                          ? `Actif (${(company.plan_abonnement || 'PRO').toUpperCase()})`
+                          : 'Expiré'}
+                      </span>
+                    </td>
                     <td className="py-4 px-4 text-center font-semibold text-slate-600">
                       {company.client_count}
                     </td>
@@ -401,17 +495,45 @@ export default function AdminDashboardPage() {
                     <td className="py-4 px-4 text-right font-bold text-slate-900">
                       {formatFCFA(company.total_invoiced)}
                     </td>
-                    <td className="py-4 px-4 text-right text-slate-500 text-xs">
-                      {formatDateFrench(company.created_at)}
-                    </td>
                     <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setSelectedCompany(company)}
-                        className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 group-hover:border-brand-300 group-hover:text-brand-600 transition-colors"
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        Détails
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        {company.statut_abonnement === 'actif' ? (
+                          <button
+                            onClick={() => handleToggleAccount(company, 'expire')}
+                            disabled={togglingId === company.id}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all shadow-sm disabled:opacity-50"
+                            title="Désactiver le compte de cet utilisateur"
+                          >
+                            {togglingId === company.id ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <PowerOff className="h-3.5 w-3.5" />
+                            )}
+                            Désactiver
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleAccount(company, 'actif')}
+                            disabled={togglingId === company.id}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50 shadow-emerald-600/10"
+                            title="Activer le compte (Plan PRO)"
+                          >
+                            {togglingId === company.id ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Power className="h-3.5 w-3.5" />
+                            )}
+                            Activer
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedCompany(company)}
+                          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                          title="Voir les détails complets"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -523,6 +645,103 @@ export default function AdminDashboardPage() {
                       {formatFCFA(selectedCompany.total_invoiced)}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Access Control & Subscription Section */}
+              <div className="space-y-3 rounded-2xl border border-slate-200/80 p-4 bg-slate-50/70">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Contrôle d'Accès & Choix du Forfait</h5>
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
+                    selectedCompany.statut_abonnement === 'actif'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      : 'bg-rose-50 text-rose-700 border-rose-100'
+                  }`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    {selectedCompany.statut_abonnement === 'actif' 
+                      ? `ACTIF (${(selectedCompany.plan_abonnement || 'PRO').toUpperCase()})` 
+                      : 'INACTIF / EXPIRÉ'}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  Attribuez ou modifiez directement le forfait de ce client sans passer par le paiement PayTech :
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  {/* Starter Button */}
+                  <button
+                    onClick={() => handleToggleAccount(selectedCompany, 'actif', 'starter')}
+                    disabled={togglingId === selectedCompany.id || (selectedCompany.statut_abonnement === 'actif' && selectedCompany.plan_abonnement === 'starter')}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all border ${
+                      selectedCompany.statut_abonnement === 'actif' && selectedCompany.plan_abonnement === 'starter'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-2 ring-emerald-500/20'
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300 hover:text-brand-600'
+                    }`}
+                  >
+                    {togglingId === selectedCompany.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-brand-600" />
+                    )}
+                    Starter
+                  </button>
+
+                  {/* Pro Button */}
+                  <button
+                    onClick={() => handleToggleAccount(selectedCompany, 'actif', 'pro')}
+                    disabled={togglingId === selectedCompany.id || (selectedCompany.statut_abonnement === 'actif' && selectedCompany.plan_abonnement === 'pro')}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all border ${
+                      selectedCompany.statut_abonnement === 'actif' && selectedCompany.plan_abonnement === 'pro'
+                        ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                        : 'bg-white border-brand-200 text-brand-700 hover:bg-brand-50'
+                    }`}
+                  >
+                    {togglingId === selectedCompany.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    )}
+                    Pro (Recommandé)
+                  </button>
+
+                  {/* Entreprise Button */}
+                  <button
+                    onClick={() => handleToggleAccount(selectedCompany, 'actif', 'entreprise')}
+                    disabled={togglingId === selectedCompany.id || (selectedCompany.statut_abonnement === 'actif' && selectedCompany.plan_abonnement === 'entreprise')}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-all border ${
+                      selectedCompany.statut_abonnement === 'actif' && selectedCompany.plan_abonnement === 'entreprise'
+                        ? 'bg-violet-700 text-white border-violet-700 shadow-sm'
+                        : 'bg-white border-violet-200 text-violet-700 hover:bg-violet-50'
+                    }`}
+                  >
+                    {togglingId === selectedCompany.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-violet-600" />
+                    )}
+                    Entreprise
+                  </button>
+                </div>
+
+                {/* Deactivate Option */}
+                <div className="pt-2 border-t border-slate-200/60 flex justify-end">
+                  <button
+                    onClick={() => handleToggleAccount(selectedCompany, 'expire')}
+                    disabled={togglingId === selectedCompany.id || selectedCompany.statut_abonnement !== 'actif'}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-4 text-xs font-bold transition-all border ${
+                      selectedCompany.statut_abonnement !== 'actif'
+                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                        : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                    }`}
+                  >
+                    {togglingId === selectedCompany.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    Désactiver / Suspendre le Compte
+                  </button>
                 </div>
               </div>
 

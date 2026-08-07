@@ -86,6 +86,8 @@ export interface CompanySummary {
   invoice_count: number;
   total_invoiced: number;
   boutique_count: number;
+  statut_abonnement?: 'actif' | 'expire' | 'annule' | 'en_attente_paiement';
+  plan_abonnement?: 'essai' | 'starter' | 'pro' | 'entreprise';
 }
 
 export interface Boutique {

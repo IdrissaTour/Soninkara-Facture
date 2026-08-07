@@ -37,7 +37,7 @@ export default function StockBoutiquePage() {
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [selectedProd, setSelectedProd] = useState<Produit | null>(null);
   const [adjustType, setAdjustType] = useState<MouvementType>('entree');
-  const [adjustQty, setAdjustQty] = useState(1);
+  const [adjustQty, setAdjustQty] = useState<number | string>(1);
   const [adjustMotif, setAdjustMotif] = useState('');
   const [adjusting, setAdjusting] = useState(false);
 
@@ -79,9 +79,11 @@ export default function StockBoutiquePage() {
     e.preventDefault();
     if (!selectedProd) return;
 
+    const numericQty = typeof adjustQty === 'number' ? adjustQty : (parseInt(adjustQty) || 1);
+
     try {
       setAdjusting(true);
-      await adjustStockAction(selectedProd.id, adjustType, adjustQty, adjustMotif);
+      await adjustStockAction(selectedProd.id, adjustType, numericQty, adjustMotif);
       
       // Refresh list
       const updated = await getProduits(boutiqueId);
@@ -382,7 +384,7 @@ export default function StockBoutiquePage() {
                   min="1"
                   required
                   value={adjustQty}
-                  onChange={(e) => setAdjustQty(parseInt(e.target.value) || 1)}
+                  onChange={(e) => setAdjustQty(e.target.value === '' ? '' : (parseInt(e.target.value) || ''))}
                   className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-900 focus:border-brand-600 focus:outline-none"
                 />
               </div>

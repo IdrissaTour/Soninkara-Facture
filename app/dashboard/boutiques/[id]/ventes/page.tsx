@@ -33,7 +33,7 @@ export default function VentesBoutiquePage() {
   // Quick Sale Drawer / Modal
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [selectedProdId, setSelectedProdId] = useState('');
-  const [quantite, setQuantite] = useState(1);
+  const [quantite, setQuantite] = useState<number | ''>(1);
   const [prixUnitaire, setPrixUnitaire] = useState<number | ''>('');
   const [genererFacture, setGenererFacture] = useState(false);
   const [clientId, setClientId] = useState('');
@@ -127,13 +127,14 @@ export default function VentesBoutiquePage() {
 
   const handleSaleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProdId || !quantite || prixUnitaire === '') {
+    const numQty = typeof quantite === 'number' ? quantite : (parseInt(quantite) || 1);
+    if (!selectedProdId || numQty <= 0 || prixUnitaire === '') {
       setError('Veuillez sélectionner un produit et valider les prix');
       return;
     }
 
     const prod = produits.find(p => p.id === selectedProdId);
-    if (prod && quantite > prod.quantite_stock) {
+    if (prod && numQty > prod.quantite_stock) {
       setError(`Quantité en stock insuffisante (Disponible: ${prod.quantite_stock} un.)`);
       return;
     }
@@ -150,7 +151,7 @@ export default function VentesBoutiquePage() {
         {
           boutique_id: boutiqueId,
           produit_id: selectedProdId,
-          quantite,
+          quantite: numQty,
           prix_unitaire: Number(prixUnitaire)
         },
         {
@@ -388,7 +389,7 @@ export default function VentesBoutiquePage() {
                     min="1"
                     required
                     value={quantite}
-                    onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setQuantite(e.target.value === '' ? '' : (parseInt(e.target.value) || ''))}
                     className="w-full rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-900 focus:border-brand-600 focus:outline-none"
                   />
                 </div>

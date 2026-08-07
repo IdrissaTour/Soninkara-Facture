@@ -7,6 +7,7 @@ import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send } from '
 import { calculateInvoiceTotals, formatFCFA } from '@/lib/utils/invoice';
 import { Client, InvoiceStatus } from '@/lib/types';
 import { getClients, getInvoiceById, updateInvoiceAction } from '@/lib/actions/db';
+import QuickCreateClientModal from '@/components/clients/QuickCreateClientModal';
 
 interface FormItem {
   description: string;
@@ -28,6 +29,12 @@ export default function EditInvoicePage({ params }: PageProps) {
   // Form fields state
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [clientId, setClientId] = useState('');
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+
+  const handleClientCreated = (newClient: Client) => {
+    setClients((prev) => [newClient, ...prev]);
+    setClientId(newClient.id);
+  };
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -197,10 +204,20 @@ export default function EditInvoicePage({ params }: PageProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Client Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
-                  <User className="h-3.5 w-3.5 text-slate-400" />
-                  Sélectionner le client *
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    <User className="h-3.5 w-3.5 text-slate-400" />
+                    Sélectionner le client *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewClientModal(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-brand-600" />
+                    Nouveau client
+                  </button>
+                </div>
                 <select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
@@ -425,6 +442,12 @@ export default function EditInvoicePage({ params }: PageProps) {
           </div>
         </div>
       </form>
+      {/* Quick Client Creation Modal */}
+      <QuickCreateClientModal
+        isOpen={showNewClientModal}
+        onClose={() => setShowNewClientModal(false)}
+        onClientCreated={handleClientCreated}
+      />
     </div>
   );
 }

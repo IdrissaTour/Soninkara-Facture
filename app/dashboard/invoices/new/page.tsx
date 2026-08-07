@@ -9,6 +9,7 @@ import { Client } from '@/lib/types';
 import { getClients, createInvoiceAction, getInvoices } from '@/lib/actions/db';
 
 import BoutonVocalFacture, { ExtractedFacture } from '@/components/voice/BoutonVocalFacture';
+import QuickCreateClientModal from '@/components/clients/QuickCreateClientModal';
 
 interface FormItem {
   description: string;
@@ -23,6 +24,7 @@ export default function NewInvoicePage() {
   
   // Form fields state
   const [clientId, setClientId] = useState('');
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(() => {
     const nextMonth = new Date();
@@ -32,6 +34,11 @@ export default function NewInvoicePage() {
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState('');
   const [applyTax, setApplyTax] = useState(true);
+
+  const handleClientCreated = (newClient: Client) => {
+    setClients((prev) => [newClient, ...prev]);
+    setClientId(newClient.id);
+  };
 
   // Dynamic items lines state
   const [items, setItems] = useState<FormItem[]>([
@@ -246,10 +253,20 @@ export default function NewInvoicePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Client Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
-                  <User className="h-3.5 w-3.5 text-slate-400" />
-                  Sélectionner le client *
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    <User className="h-3.5 w-3.5 text-slate-400" />
+                    Sélectionner le client *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewClientModal(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-brand-600" />
+                    Nouveau client
+                  </button>
+                </div>
                 <select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
@@ -495,6 +512,12 @@ export default function NewInvoicePage() {
           </div>
         </div>
       )}
+      {/* Quick Client Creation Modal */}
+      <QuickCreateClientModal
+        isOpen={showNewClientModal}
+        onClose={() => setShowNewClientModal(false)}
+        onClientCreated={handleClientCreated}
+      />
     </div>
   );
 }

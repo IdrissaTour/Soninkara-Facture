@@ -435,111 +435,235 @@ export default function AdminDashboardPage() {
             <p className="text-xs text-slate-500">Essayez de modifier votre terme de recherche.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 px-4">Entreprise</th>
-                  <th className="py-3 px-4">Propriétaire</th>
-                  <th className="py-3 px-4 text-center">Statut</th>
-                  <th className="py-3 px-4 text-center">Clients</th>
-                  <th className="py-3 px-4 text-center">Boutiques</th>
-                  <th className="py-3 px-4 text-center">Factures</th>
-                  <th className="py-3 px-4 text-right">Montant Facturé</th>
-                  <th className="py-3 px-4 text-center">Gestion Compte</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100/60 text-sm">
-                {filteredSummaries.map((company) => (
-                  <tr 
-                    key={company.id} 
-                    className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
-                    onClick={() => setSelectedCompany(company)}
-                  >
-                    <td className="py-4 px-4 font-bold text-slate-800">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-xs font-bold text-brand-600">
-                          {company.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p>{company.name}</p>
-                          <p className="text-[10px] font-normal text-slate-400 truncate max-w-[150px]">{company.id}</p>
-                        </div>
+          <>
+            {/* Mobile Phone View (Cards) */}
+            <div className="block md:hidden space-y-4">
+              {filteredSummaries.map((company) => (
+                <div 
+                  key={company.id}
+                  className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 shadow-sm space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-xs font-bold text-brand-600 border border-brand-100 flex-shrink-0">
+                        {company.name.substring(0, 2).toUpperCase()}
                       </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-slate-600 truncate max-w-[180px]">{company.email || 'Pas d\'email'}</p>
-                      <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{company.phone || 'Pas de tél'}</p>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
-                        company.statut_abonnement === 'actif'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                          : 'bg-rose-50 text-rose-700 border-rose-100'
-                      }`}>
-                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        {company.statut_abonnement === 'actif'
-                          ? `Actif (${(company.plan_abonnement || 'PRO').toUpperCase()})`
-                          : 'Expiré'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center font-semibold text-slate-600">
-                      {company.client_count}
-                    </td>
-                    <td className="py-4 px-4 text-center font-semibold text-slate-600">
-                      {company.boutique_count || 0}
-                    </td>
-                    <td className="py-4 px-4 text-center font-semibold text-slate-600">
-                      {company.invoice_count}
-                    </td>
-                    <td className="py-4 px-4 text-right font-bold text-slate-900">
-                      {formatFCFA(company.total_invoiced)}
-                    </td>
-                    <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-2">
-                        {company.statut_abonnement === 'actif' ? (
-                          <button
-                            onClick={() => handleToggleAccount(company, 'expire')}
-                            disabled={togglingId === company.id}
-                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all shadow-sm disabled:opacity-50"
-                            title="Désactiver le compte de cet utilisateur"
-                          >
-                            {togglingId === company.id ? (
-                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <PowerOff className="h-3.5 w-3.5" />
-                            )}
-                            Désactiver
-                          </button>
+                      <div>
+                        <h3 className="font-extrabold text-slate-900 text-sm">{company.name}</h3>
+                        <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{company.email || 'Sans email'}</p>
+                      </div>
+                    </div>
+                    
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold flex-shrink-0 ${
+                      company.statut_abonnement === 'actif'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                        : 'bg-rose-50 text-rose-700 border-rose-100'
+                    }`}>
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      {company.statut_abonnement === 'actif'
+                        ? (company.plan_abonnement || 'PRO').toUpperCase()
+                        : 'Expiré'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center py-2 px-3 bg-white rounded-xl border border-slate-100 text-xs">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-slate-400">Clients</p>
+                      <p className="font-extrabold text-slate-800">{company.client_count}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-slate-400">Factures</p>
+                      <p className="font-extrabold text-slate-800">{company.invoice_count}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase text-slate-400">Facturé</p>
+                      <p className="font-extrabold text-brand-600 text-[11px]">{formatFCFA(company.total_invoiced)}</p>
+                    </div>
+                  </div>
+
+                  {/* Plan Action Buttons on Mobile */}
+                  <div className="space-y-2 pt-1 border-t border-slate-200/60">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Modifier le Plan :</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={() => handleToggleAccount(company, 'actif', 'starter')}
+                        disabled={togglingId === company.id || (company.statut_abonnement === 'actif' && company.plan_abonnement === 'starter')}
+                        className={`inline-flex items-center justify-center rounded-xl py-1.5 px-2 text-[11px] font-bold transition-all border ${
+                          company.statut_abonnement === 'actif' && company.plan_abonnement === 'starter'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-500/20'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {togglingId === company.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Starter'}
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleAccount(company, 'actif', 'pro')}
+                        disabled={togglingId === company.id || (company.statut_abonnement === 'actif' && company.plan_abonnement === 'pro')}
+                        className={`inline-flex items-center justify-center rounded-xl py-1.5 px-2 text-[11px] font-bold transition-all border ${
+                          company.statut_abonnement === 'actif' && company.plan_abonnement === 'pro'
+                            ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                            : 'bg-white border-brand-200 text-brand-700 hover:bg-brand-50'
+                        }`}
+                      >
+                        {togglingId === company.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Pro'}
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleAccount(company, 'actif', 'entreprise')}
+                        disabled={togglingId === company.id || (company.statut_abonnement === 'actif' && company.plan_abonnement === 'entreprise')}
+                        className={`inline-flex items-center justify-center rounded-xl py-1.5 px-2 text-[11px] font-bold transition-all border ${
+                          company.statut_abonnement === 'actif' && company.plan_abonnement === 'entreprise'
+                            ? 'bg-violet-700 text-white border-violet-700 shadow-sm'
+                            : 'bg-white border-violet-200 text-violet-700 hover:bg-violet-50'
+                        }`}
+                      >
+                        {togglingId === company.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Entreprise'}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      <button
+                        onClick={() => handleToggleAccount(company, company.statut_abonnement === 'actif' ? 'expire' : 'actif', 'pro')}
+                        disabled={togglingId === company.id}
+                        className={`inline-flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
+                          company.statut_abonnement === 'actif'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                            : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                        }`}
+                      >
+                        {togglingId === company.id ? (
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                        ) : company.statut_abonnement === 'actif' ? (
+                          <>
+                            <PowerOff className="h-3 w-3" /> Désactiver
+                          </>
                         ) : (
-                          <button
-                            onClick={() => handleToggleAccount(company, 'actif')}
-                            disabled={togglingId === company.id}
-                            className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50 shadow-emerald-600/10"
-                            title="Activer le compte (Plan PRO)"
-                          >
-                            {togglingId === company.id ? (
-                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Power className="h-3.5 w-3.5" />
-                            )}
-                            Activer
-                          </button>
+                          <>
+                            <Power className="h-3 w-3" /> Activer (Pro)
+                          </>
                         )}
-                        <button
-                          onClick={() => setSelectedCompany(company)}
-                          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-                          title="Voir les détails complets"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedCompany(company)}
+                        className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                      >
+                        <ExternalLink className="h-3 w-3" /> Détails
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop View (Table) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <th className="py-3 px-4">Entreprise</th>
+                    <th className="py-3 px-4">Propriétaire</th>
+                    <th className="py-3 px-4 text-center">Statut</th>
+                    <th className="py-3 px-4 text-center">Clients</th>
+                    <th className="py-3 px-4 text-center">Boutiques</th>
+                    <th className="py-3 px-4 text-center">Factures</th>
+                    <th className="py-3 px-4 text-right">Montant Facturé</th>
+                    <th className="py-3 px-4 text-center">Gestion Compte</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100/60 text-sm">
+                  {filteredSummaries.map((company) => (
+                    <tr 
+                      key={company.id} 
+                      className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                      onClick={() => setSelectedCompany(company)}
+                    >
+                      <td className="py-4 px-4 font-bold text-slate-800">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-xs font-bold text-brand-600">
+                            {company.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p>{company.name}</p>
+                            <p className="text-[10px] font-normal text-slate-400 truncate max-w-[150px]">{company.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-slate-600 truncate max-w-[180px]">{company.email || 'Pas d\'email'}</p>
+                        <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{company.phone || 'Pas de tél'}</p>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                          company.statut_abonnement === 'actif'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : 'bg-rose-50 text-rose-700 border-rose-100'
+                        }`}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          {company.statut_abonnement === 'actif'
+                            ? `Actif (${(company.plan_abonnement || 'PRO').toUpperCase()})`
+                            : 'Expiré'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center font-semibold text-slate-600">
+                        {company.client_count}
+                      </td>
+                      <td className="py-4 px-4 text-center font-semibold text-slate-600">
+                        {company.boutique_count || 0}
+                      </td>
+                      <td className="py-4 px-4 text-center font-semibold text-slate-600">
+                        {company.invoice_count}
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-slate-900">
+                        {formatFCFA(company.total_invoiced)}
+                      </td>
+                      <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-2">
+                          {company.statut_abonnement === 'actif' ? (
+                            <button
+                              onClick={() => handleToggleAccount(company, 'expire')}
+                              disabled={togglingId === company.id}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all shadow-sm disabled:opacity-50"
+                              title="Désactiver le compte de cet utilisateur"
+                            >
+                              {togglingId === company.id ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <PowerOff className="h-3.5 w-3.5" />
+                              )}
+                              Désactiver
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleAccount(company, 'actif')}
+                              disabled={togglingId === company.id}
+                              className="inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50 shadow-emerald-600/10"
+                              title="Activer le compte (Plan PRO)"
+                            >
+                              {togglingId === company.id ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Power className="h-3.5 w-3.5" />
+                              )}
+                              Activer
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedCompany(company)}
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                            title="Voir les détails complets"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

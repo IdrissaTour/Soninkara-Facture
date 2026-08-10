@@ -1,8 +1,8 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { CompanySummary } from '@/lib/types';
-
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Helper to check if Supabase is fully configured
@@ -75,6 +75,9 @@ export async function toggleCompanyAccountStatusAdmin({
 }): Promise<{ success: boolean; message: string }> {
   if (!isSupabaseConfigured()) {
     mockStatusStore[ownerId] = { statut: newStatut, plan };
+    revalidatePath('/dashboard/admin');
+    revalidatePath('/dashboard/abonnement');
+    revalidatePath('/dashboard');
     return { 
       success: true, 
       message: newStatut === 'actif' 
@@ -91,7 +94,12 @@ export async function toggleCompanyAccountStatusAdmin({
       throw new Error('Non autorisé : Droits administrateur requis.');
     }
 
-    const supabaseAdmin = createAdminClient();
+    let supabaseAdmin;
+    try {
+      supabaseAdmin = createAdminClient();
+    } catch {
+      supabaseAdmin = supabase;
+    }
 
     const dateProchaine = new Date();
     dateProchaine.setFullYear(dateProchaine.getFullYear() + 1);
@@ -112,6 +120,10 @@ export async function toggleCompanyAccountStatusAdmin({
       console.error('Erreur lors du changement de statut d\'abonnement:', error);
       throw new Error(error.message);
     }
+
+    revalidatePath('/dashboard/admin');
+    revalidatePath('/dashboard/abonnement');
+    revalidatePath('/dashboard');
 
     return { 
       success: true, 

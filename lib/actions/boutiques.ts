@@ -111,7 +111,14 @@ export async function getBoutiqueById(id: string): Promise<Boutique | null> {
   return boutiques.find(b => b.id === id) || null;
 }
 
-export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?: string; devise?: string }): Promise<Boutique> {
+export interface CreateBoutiqueResult {
+  success: boolean;
+  data?: Boutique;
+  error?: string;
+  limitReached?: boolean;
+}
+
+export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?: string; devise?: string }): Promise<CreateBoutiqueResult> {
   if (!isSupabaseConfigured()) {
     const plan = mockAbonnement.plan || 'essai';
     let maxBoutiques = 1;
@@ -124,7 +131,11 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
     }
 
     if (mockBoutiques.length >= maxBoutiques) {
-      throw new Error(`Pendant votre période d'essai gratuit de 30 jours, vous êtes limité à ${maxBoutiques} seule boutique. Passez au plan Pro pour ajouter jusqu'à 6 boutiques.`);
+      return {
+        success: false,
+        limitReached: true,
+        error: `Votre forfait actuel (${plan === 'starter' ? 'Starter' : 'Essai gratuit'}) est limité à 1 seule boutique. Veuillez passer au forfait Pro (jusqu'à 6 boutiques) ou Entreprise pour ajouter d'autres points de vente.`
+      };
     }
 
     const newBoutique: Boutique = {
@@ -140,13 +151,15 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
     };
     mockBoutiques.unshift(newBoutique);
     revalidatePath('/dashboard/boutiques');
-    return newBoutique;
+    return { success: true, data: newBoutique };
   }
 
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Non authentifié');
+    if (!user) {
+      return { success: false, error: 'Non authentifié' };
+    }
 
     const { data: company } = await supabase
       .from('companies')
@@ -154,7 +167,9 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
       .eq('owner_id', user.id)
       .single();
 
-    if (!company) throw new Error('Entreprise non trouvée');
+    if (!company) {
+      return { success: false, error: 'Entreprise non trouvée' };
+    }
 
     // Récupérer l'abonnement
     const { data: abonnement } = await supabase
@@ -171,7 +186,9 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
       .select('id', { count: 'exact', head: true })
       .eq('company_id', company.id);
 
-    if (countError) throw new Error('Impossible de valider vos limites d\'abonnement pour le moment');
+    if (countError) {
+      return { success: false, error: 'Impossible de valider vos limites d\'abonnement pour le moment' };
+    }
 
     const boutiqueCount = count || 0;
 
@@ -185,7 +202,11 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
     }
 
     if (boutiqueCount >= maxBoutiques) {
-      throw new Error(`Pendant votre période d'essai gratuit de 30 jours (ou forfait Starter), vous avez droit à 1 seule boutique. Veuillez passer au forfait Pro pour débloquer jusqu'à 6 boutiques.`);
+      return {
+        success: false,
+        limitReached: true,
+        error: `Votre forfait actuel (${plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Essai gratuit'}) est limité à ${maxBoutiques} seule boutique. Veuillez passer au forfait Pro (jusqu'à 6 boutiques) ou Entreprise pour ajouter de nouveaux points de vente.`
+      };
     }
 
     const { data, error } = await supabase
@@ -199,13 +220,16 @@ export async function createBoutiqueAction(boutiqueData: { nom: string; adresse?
       .select()
       .single();
 
-    if (error || !data) throw new Error(error?.message || 'Erreur lors de la création de la boutique');
+    if (error || !data) {
+      return { success: false, error: error?.message || 'Erreur lors de la création de la boutique' };
+    }
 
     revalidatePath('/dashboard/boutiques');
-    return data as Boutique;
-  } catch (err) {
+    return { success: true, data: data as Boutique };
+  } catch (err: unknown) {
     console.error('Error creating boutique:', err);
-    throw err;
+    const message = err instanceof Error ? err.message : 'Erreur imprévue lors de la création de la boutique';
+    return { success: false, error: message };
   }
 }
 

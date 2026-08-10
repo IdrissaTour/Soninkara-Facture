@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Store, Save, Building } from 'lucide-react';
+import { ArrowLeft, Store, Save, Building, Lock, Sparkles } from 'lucide-react';
 import { createBoutiqueAction } from '@/lib/actions/boutiques';
 
 export default function NouvelleBoutiquePage() {
@@ -13,22 +13,33 @@ export default function NouvelleBoutiquePage() {
   const [devise, setDevise] = useState('FCFA');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nom.trim()) {
       setError('Veuillez indiquer le nom de la boutique');
+      setLimitReached(false);
       return;
     }
 
     try {
       setSubmitting(true);
       setError(null);
-      await createBoutiqueAction({
+      setLimitReached(false);
+
+      const res = await createBoutiqueAction({
         nom: nom.trim(),
         adresse: adresse.trim() || undefined,
         devise
       });
+
+      if (!res.success) {
+        setError(res.error || 'Erreur lors de la création de la boutique');
+        setLimitReached(!!res.limitReached);
+        return;
+      }
+
       router.push('/dashboard/boutiques');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erreur lors de la création de la boutique';
@@ -59,8 +70,37 @@ export default function NouvelleBoutiquePage() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800">
-          {error}
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm space-y-3 animate-fadeIn">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-600 flex-shrink-0">
+              <Lock className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-extrabold text-rose-900 font-sans">
+                {limitReached ? "Limite de boutique atteinte" : "Attention"}
+              </h3>
+              <p className="text-xs text-rose-700 leading-relaxed mt-1">
+                {error}
+              </p>
+              {limitReached && (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Link
+                    href="/dashboard/abonnement"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-all"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Changer de forfait (Passer au plan Pro)
+                  </Link>
+                  <Link
+                    href="/dashboard/boutiques"
+                    className="text-xs font-bold text-slate-600 hover:text-slate-900 underline"
+                  >
+                    Retour à mes boutiques
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

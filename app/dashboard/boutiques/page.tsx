@@ -2,25 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Store, Plus, Package, AlertTriangle, TrendingUp, ShoppingBag, BarChart3, Building2, Tag } from 'lucide-react';
+import { Store, Plus, Package, AlertTriangle, TrendingUp, ShoppingBag, BarChart3, Building2, Tag, Lock, Sparkles } from 'lucide-react';
 import { getBoutiques, getAllStockAlerts } from '@/lib/actions/boutiques';
-import { Boutique, StockAlert } from '@/lib/types';
+import { getAbonnement } from '@/lib/actions/db';
+import { Boutique, StockAlert, Abonnement } from '@/lib/types';
 import { formatFCFA } from '@/lib/utils/invoice';
 
 export default function BoutiquesPage() {
   const [boutiques, setBoutiques] = useState<Boutique[]>([]);
   const [alerts, setAlerts] = useState<StockAlert[]>([]);
+  const [abonnement, setAbonnement] = useState<Abonnement | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [bData, aData] = await Promise.all([
+        const [bData, aData, subData] = await Promise.all([
           getBoutiques(),
-          getAllStockAlerts()
+          getAllStockAlerts(),
+          getAbonnement()
         ]);
         setBoutiques(bData);
         setAlerts(aData);
+        setAbonnement(subData);
       } catch (err) {
         console.error('Error loading boutiques:', err);
       } finally {
@@ -34,8 +38,39 @@ export default function BoutiquesPage() {
   const totalExpensesAll = boutiques.reduce((acc, b) => acc + (b.total_expenses || 0), 0);
   const totalProductsAll = boutiques.reduce((acc, b) => acc + (b.produits_count || 0), 0);
 
+  const currentPlan = abonnement?.statut === 'actif' ? abonnement.plan : (abonnement?.plan || 'essai');
+  const limitReached = (currentPlan === 'essai' || currentPlan === 'starter') && boutiques.length >= 1;
+
   return (
     <div className="space-y-8 animate-fadeIn">
+      {/* Banner Limit Alert if limit reached */}
+      {limitReached && (
+        <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-r from-amber-50 via-amber-50 to-orange-50 p-4 shadow-sm animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-800 shrink-0">
+                <Lock className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-amber-950">
+                  Vous avez atteint votre limite de boutique (1/1)
+                </h3>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Votre forfait actuel ({currentPlan === 'starter' ? 'Starter' : 'Essai Gratuit'}) est limité à 1 seule boutique. Changez de plan pour ajouter d&apos;autres points de vente.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/abonnement"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-brand-500 transition-all shrink-0"
+            >
+              <Sparkles className="h-4 w-4" />
+              Changer le plan
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner Header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-950 p-6 md:p-8 text-white shadow-xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -52,13 +87,24 @@ export default function BoutiquesPage() {
             </p>
           </div>
 
-          <Link
-            href="/dashboard/boutiques/nouvelle"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-600/30 hover:bg-brand-500 transition-all duration-200 shrink-0"
-          >
-            <Plus className="h-5 w-5" />
-            Nouvelle Boutique
-          </Link>
+          {limitReached ? (
+            <Link
+              href="/dashboard/abonnement"
+              title="Vous avez atteint votre limite de boutique - Cliquez pour changer de plan"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600/40 text-brand-100 border border-brand-400/30 px-5 py-3 text-sm font-bold shadow-sm backdrop-blur-xs hover:bg-brand-600/60 transition-all duration-200 shrink-0"
+            >
+              <Lock className="h-4.5 w-4.5 text-brand-200" />
+              + Nouvelle Boutique
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/boutiques/nouvelle"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-600/30 hover:bg-brand-500 transition-all duration-200 shrink-0"
+            >
+              <Plus className="h-5 w-5" />
+              Nouvelle Boutique
+            </Link>
+          )}
         </div>
 
         {/* Decorative SVG background shapes */}

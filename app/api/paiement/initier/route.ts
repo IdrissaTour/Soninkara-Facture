@@ -118,6 +118,8 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'api_key': apiKey,
+        'api_secret': apiSecret,
         'API_KEY': apiKey,
         'API_SECRET': apiSecret,
       },
@@ -144,9 +146,10 @@ export async function POST(req: NextRequest) {
 
     if (data.success !== 1 && data.success !== '1') {
       console.error('Réponse de PayTech non conforme:', data);
+      const errorMessage = (Array.isArray(data.error) ? data.error[0] : data.error) || data.message || data.errors?.[0] || 'Échec de l\'initiation du paiement avec PayTech';
       return NextResponse.json({ 
-        error: data.errors?.[0] || 'Échec de l\'initiation du paiement avec PayTech' 
-      }, { status: 500 });
+        error: errorMessage 
+      }, { status: 400 });
     }
 
     // 3. Enregistrement de la transaction en attente dans la base de données

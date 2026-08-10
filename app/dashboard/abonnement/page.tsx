@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Sparkles, Shield, Rocket, HelpCircle, Loader2 } from 'lucide-react';
+import { Check, Sparkles, Shield, Rocket, HelpCircle, Loader2, Phone, MessageCircle, AlertCircle } from 'lucide-react';
 import { getAbonnement, updateMockAbonnement } from '@/lib/actions/db';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { Abonnement } from '@/lib/types';
@@ -149,6 +149,7 @@ export default function AbonnementPage() {
       icon: Shield,
       priceMonthly: 10000,
       priceYearly: 96000,
+      popular: true,
       description: 'Conçu pour les commerces et PME en pleine croissance.',
       features: [
         'Starter inclus',
@@ -158,8 +159,7 @@ export default function AbonnementPage() {
         'Personnalisation complète du logo',
         'Support WhatsApp prioritaire'
       ],
-      cta: 'Choisir Pro',
-      popular: true
+      cta: 'Choisir Pro'
     },
     {
       key: 'entreprise',
@@ -167,16 +167,16 @@ export default function AbonnementPage() {
       icon: Rocket,
       priceMonthly: 25000,
       priceYearly: 240000,
-      description: 'Pour les structures gérant plusieurs activités complexes.',
+      description: 'Solution sur-mesure pour réseaux de boutiques.',
       features: [
         'Pro inclus',
-        'Entreprises illimitées',
-        'Boutiques & stocks illimités',
-        'Accès aux APIs de facturation',
-        'Support dédié 24h/7j',
-        'Intégration comptable sur-mesure'
+        'Boutiques illimitées',
+        'Accompagnement dédié',
+        'Intégration sur-mesure',
+        'Formation des équipes',
+        'Garantie de disponibilité 99.9%'
       ],
-      cta: 'Choisir Entreprise'
+      cta: 'Contacter l\'équipe'
     }
   ];
 
@@ -244,8 +244,38 @@ export default function AbonnementPage() {
       )}
 
       {errorMsg && (
-        <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-bold text-rose-800 animate-fadeIn">
-          {errorMsg}
+        <div className="rounded-2xl bg-rose-50 border border-rose-200/80 p-5 text-xs text-rose-900 animate-fadeIn shadow-sm space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-rose-600 shrink-0">
+              <AlertCircle className="h-5 w-5" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <h3 className="font-extrabold text-sm text-rose-950">
+                {errorMsg}
+              </h3>
+              <p className="text-xs text-rose-800 leading-relaxed">
+                Pour activer ou renouveler votre abonnement immédiatement (via Orange Money, Wave ou Moov Money), vous pouvez nous contacter directement :
+              </p>
+              <div className="pt-1 flex flex-wrap items-center gap-3">
+                <a
+                  href="https://wa.me/22392206346?text=Bonjour,%20je%20souhaite%20activer%20mon%20abonnement%20Soninkara%20Facture"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700 transition-all"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp : +223 92 20 63 46
+                </a>
+                <a
+                  href="tel:+22392206346"
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-slate-800 transition-all"
+                >
+                  <Phone className="h-4 w-4" />
+                  Appeler : +223 92 20 63 46
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -370,6 +400,40 @@ export default function AbonnementPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* Support & Manual Payment Card */}
+      <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-brand-950 p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-xl">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-brand-200">
+            <Phone className="h-3.5 w-3.5" />
+            Support & Paiement Direct
+          </div>
+          <h3 className="text-xl font-extrabold text-white">
+            Paiement direct par Orange Money / Wave / Moov ?
+          </h3>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Vous souhaitez payer directement par transfert d&apos;argent ou vous avez besoin d&apos;assistance pour activer votre formule ? Contactez-nous à tout moment.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <a
+            href="https://wa.me/22392206346?text=Bonjour,%20je%20souhaite%20activer%20mon%20abonnement%20Soninkara%20Facture"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-xs font-bold text-white shadow-lg hover:bg-emerald-500 transition-all"
+          >
+            <MessageCircle className="h-4.5 w-4.5" />
+            WhatsApp (+223 92 20 63 46)
+          </a>
+          <a
+            href="tel:+22392206346"
+            className="inline-flex items-center gap-2 rounded-xl bg-white/10 border border-white/20 px-5 py-3 text-xs font-bold text-white hover:bg-white/20 transition-all"
+          >
+            <Phone className="h-4.5 w-4.5" />
+            +223 92 20 63 46
+          </a>
+        </div>
       </div>
     </div>
   );

@@ -239,7 +239,7 @@ export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {
     const rows = (data || []) as DbSummary[];
 
     // Fetch subscription status for all companies
-    let subMap = new Map<string, { plan: string; statut: string }>();
+    const subMap = new Map<string, { plan: string; statut: string }>();
     try {
       const supabaseAdmin = createAdminClient();
       const { data: subs } = await supabaseAdmin

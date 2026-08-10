@@ -775,7 +775,7 @@ export default function AdminDashboardPage() {
               {/* Access Control & Subscription Section */}
               <div className="space-y-3 rounded-2xl border border-slate-200/80 p-4 bg-slate-50/70">
                 <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Contrôle d'Accès & Choix du Forfait</h5>
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">{"Contrôle d'Accès & Choix du Forfait"}</h5>
                   <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${
                     selectedCompany.statut_abonnement === 'actif'
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-100'

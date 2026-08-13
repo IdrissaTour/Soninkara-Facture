@@ -138,6 +138,70 @@ export async function toggleCompanyAccountStatusAdmin({
 }
 
 /**
+ * Deletes a company account permanently (Admin action)
+ */
+export async function deleteCompanyAccountAdmin({
+  companyId,
+  ownerId
+}: {
+  companyId: string;
+  ownerId: string;
+}): Promise<{ success: boolean; message: string }> {
+  if (!isSupabaseConfigured()) {
+    delete mockStatusStore[ownerId];
+    revalidatePath('/dashboard/admin');
+    return { 
+      success: true, 
+      message: '[Mode Démo] Le compte a été supprimé définitivement.' 
+    };
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user || !isUserAdmin(user.email)) {
+      throw new Error('Non autorisé : Droits administrateur requis.');
+    }
+
+    let supabaseAdmin;
+    try {
+      supabaseAdmin = createAdminClient();
+    } catch {
+      supabaseAdmin = supabase;
+    }
+
+    // Suppression en cascade des données associées
+    await supabaseAdmin.from('invoices').delete().eq('company_id', companyId);
+    await supabaseAdmin.from('clients').delete().eq('company_id', companyId);
+    await supabaseAdmin.from('boutiques').delete().eq('company_id', companyId);
+    await supabaseAdmin.from('expenses').delete().eq('company_id', companyId);
+    await supabaseAdmin.from('abonnements').delete().eq('utilisateur_id', ownerId);
+
+    const { error: compError } = await supabaseAdmin.from('companies').delete().eq('id', companyId);
+    if (compError) {
+      throw new Error(compError.message);
+    }
+
+    // Suppression de l'utilisateur dans Supabase Auth s'il y a les droits admin
+    try {
+      await supabaseAdmin.auth.admin.deleteUser(ownerId);
+    } catch (authErr) {
+      console.warn('Erreur lors de la suppression de l\'utilisateur Auth:', authErr);
+    }
+
+    revalidatePath('/dashboard/admin');
+    return { 
+      success: true, 
+      message: 'Le compte entreprise et toutes ses données associées ont été supprimés définitivement.' 
+    };
+  } catch (err) {
+    console.error('Exception deleteCompanyAccountAdmin:', err);
+    throw err;
+  }
+}
+
+/**
  * Fetches summaries of all registered companies (Admin/Developer dashboard data)
  */
 export async function getCompaniesSummaryAdmin(): Promise<CompanySummary[]> {

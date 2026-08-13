@@ -22,13 +22,15 @@ import {
   CheckCircle2,
   XCircle,
   Power,
-  PowerOff
+  PowerOff,
+  Trash2
 } from 'lucide-react';
 import { 
   getCompaniesSummaryAdmin, 
   checkAdminStatus, 
   verifyAdminPasscode,
-  toggleCompanyAccountStatusAdmin 
+  toggleCompanyAccountStatusAdmin,
+  deleteCompanyAccountAdmin
 } from '@/lib/actions/admin';
 import { CompanySummary } from '@/lib/types';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
@@ -42,6 +44,7 @@ export default function AdminDashboardPage() {
   const [selectedCompany, setSelectedCompany] = useState<CompanySummary | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Double security states
@@ -163,6 +166,34 @@ export default function AdminDashboardPage() {
       });
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleDeleteCompany = async (company: CompanySummary) => {
+    const confirmMessage = `ÊTES-VOUS SÛR DE VOULOIR SUPPRIMER DÉFINITIVEMENT LE COMPTE "${company.name.toUpperCase()}" ?\n\nToutes les données (factures, clients, boutiques, abonnements) seront effacées sans possibilité de récupération.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeletingId(company.id);
+    setActionFeedback(null);
+    try {
+      const res = await deleteCompanyAccountAdmin({
+        companyId: company.id,
+        ownerId: company.owner_id,
+      });
+      if (res.success) {
+        setActionFeedback({ type: 'success', message: res.message });
+        setSummaries((prev) => prev.filter((c) => c.id !== company.id));
+        if (selectedCompany && selectedCompany.id === company.id) {
+          setSelectedCompany(null);
+        }
+      }
+    } catch (err) {
+      setActionFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erreur lors de la suppression du compte.',
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -523,27 +554,42 @@ export default function AdminDashboardPage() {
                     </div>
 
                     <div className="flex items-center justify-between pt-1 gap-2">
-                      <button
-                        onClick={() => handleToggleAccount(company, company.statut_abonnement === 'actif' ? 'expire' : 'actif', 'pro')}
-                        disabled={togglingId === company.id}
-                        className={`inline-flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all border ${
-                          company.statut_abonnement === 'actif'
-                            ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
-                            : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                        }`}
-                      >
-                        {togglingId === company.id ? (
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                        ) : company.statut_abonnement === 'actif' ? (
-                          <>
-                            <PowerOff className="h-3 w-3" /> Désactiver
-                          </>
-                        ) : (
-                          <>
-                            <Power className="h-3 w-3" /> Activer (Pro)
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleToggleAccount(company, company.statut_abonnement === 'actif' ? 'expire' : 'actif', 'pro')}
+                          disabled={togglingId === company.id || deletingId === company.id}
+                          className={`inline-flex items-center justify-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all border ${
+                            company.statut_abonnement === 'actif'
+                              ? 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+                              : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                          }`}
+                        >
+                          {togglingId === company.id ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : company.statut_abonnement === 'actif' ? (
+                            <>
+                              <PowerOff className="h-3 w-3" /> Désactiver
+                            </>
+                          ) : (
+                            <>
+                              <Power className="h-3 w-3" /> Activer (Pro)
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteCompany(company)}
+                          disabled={deletingId === company.id || togglingId === company.id}
+                          className="inline-flex items-center justify-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all shadow-sm disabled:opacity-50"
+                          title="Supprimer définitivement ce compte"
+                        >
+                          {deletingId === company.id ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3 text-rose-600" />
+                          )}
+                        </button>
+                      </div>
 
                       <button
                         onClick={() => setSelectedCompany(company)}
@@ -649,6 +695,18 @@ export default function AdminDashboardPage() {
                               Activer
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDeleteCompany(company)}
+                            disabled={deletingId === company.id || togglingId === company.id}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-all shadow-sm disabled:opacity-50"
+                            title="Supprimer définitivement ce compte"
+                          >
+                            {deletingId === company.id ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                            )}
+                          </button>
                           <button
                             onClick={() => setSelectedCompany(company)}
                             className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
@@ -848,12 +906,25 @@ export default function AdminDashboardPage() {
                   </button>
                 </div>
 
-                {/* Deactivate Option */}
-                <div className="pt-2 border-t border-slate-200/60 flex justify-end">
+                {/* Delete and Deactivate Options */}
+                <div className="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <button
+                    onClick={() => handleDeleteCompany(selectedCompany)}
+                    disabled={deletingId === selectedCompany.id || togglingId === selectedCompany.id}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-4 text-xs font-bold transition-all border border-rose-200 bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/10 disabled:opacity-50"
+                  >
+                    {deletingId === selectedCompany.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    Supprimer ce compte définitivement
+                  </button>
+
                   <button
                     onClick={() => handleToggleAccount(selectedCompany, 'expire')}
                     disabled={togglingId === selectedCompany.id || selectedCompany.statut_abonnement !== 'actif'}
-                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-4 text-xs font-bold transition-all border ${
+                    className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-4 text-xs font-bold transition-all border ${
                       selectedCompany.statut_abonnement !== 'actif'
                         ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
                         : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'

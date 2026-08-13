@@ -22,7 +22,7 @@ export default function AuthCard() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showEmailVerificationScreen, setShowEmailVerificationScreen] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [registeredEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [resendingOtp, setResendingOtp] = useState(false);
@@ -162,10 +162,13 @@ export default function AuthCard() {
 
       if (authError) {
         let errorMsg = authError.message;
+        const isRateLimit = errorMsg.toLowerCase().includes('rate limit') || errorMsg.toLowerCase().includes('rate_limit');
         if (authError.message === 'Invalid login credentials') {
           errorMsg = 'Identifiants de connexion invalides. Veuillez vérifier votre email et mot de passe.';
         } else if (authError.message === 'Email not confirmed' || authError.message.includes('confirm')) {
-          errorMsg = "Votre adresse e-mail n'a pas encore été confirmée. Veuillez vérifier votre boîte de réception ou vos spams.";
+          errorMsg = 'Identifiants de connexion invalides. Veuillez vérifier votre adresse email et votre mot de passe.';
+        } else if (isRateLimit) {
+          errorMsg = "Limite d'envoi d'e-mails atteinte (quota de sécurité Supabase). Veuillez patienter 2 à 5 minutes ou utiliser le Mode Démo.";
         }
         setError(errorMsg);
         setLoading(false);
@@ -258,32 +261,45 @@ export default function AuthCard() {
 
       if (authError) {
         let msg = authError.message;
+        const isRateLimit = msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('rate_limit');
         if (msg.includes('already registered') || msg.includes('User already exists')) {
-          // Si le compte existe déjà dans Supabase Auth (ex: inscription précédente non confirmée), 
-          // on renvoie un e-mail de confirmation et on bascule directement sur l'écran de vérification.
-          await supabase.auth.resend({
-            type: 'signup',
-            email: email,
-            options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback`,
-            },
-          }).catch(() => {});
+          // Tentative de connexion automatique si le compte existe déjà
+          const { data: signInData, error: autoSignInErr } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
-          setRegisteredEmail(email);
-          setOtpCode('');
-          setVerificationError(null);
-          setVerificationSuccess("Un compte existe pour cet e-mail. Un code et un lien de confirmation ont été envoyés à votre adresse. Veuillez valider votre compte ci-dessous.");
+          if (!autoSignInErr && signInData?.user) {
+            const { data: companies } = await supabase
+              .from('companies')
+              .select('id')
+              .eq('owner_id', signInData.user.id)
+              .limit(1);
+
+            setLoading(false);
+            if (!companies || companies.length === 0) {
+              window.location.href = '/onboarding';
+            } else {
+              window.location.href = '/dashboard';
+            }
+            return;
+          }
+
+          setError("Un compte existe déjà pour cet e-mail. Veuillez vous connecter avec votre mot de passe.");
           setLoading(false);
-          setShowEmailVerificationScreen(true);
+          setActiveTab('login');
           return;
         } else if (msg.includes('Password should be at least')) {
           msg = "Le mot de passe doit contenir au moins 6 caractères.";
+        } else if (isRateLimit) {
+          msg = "Limite d'envoi d'e-mails atteinte (quota de sécurité Supabase). Veuillez patienter 2 à 5 minutes avant de réessayer, ou cliquez sur 'Lancer le Mode Démo' ci-dessous pour tester immédiatement.";
         }
         setError(msg);
         setLoading(false);
         return;
       }
 
+      // Si la session est créée directement (activation par e-mail désactivée dans Supabase)
       if (data?.session && data?.user) {
         const { data: companies } = await supabase
           .from('companies')
@@ -300,13 +316,32 @@ export default function AuthCard() {
         return;
       }
 
-      // Basculer systématiquement vers l'écran de vérification d'e-mail
-      setRegisteredEmail(email);
-      setOtpCode('');
-      setVerificationError(null);
-      setVerificationSuccess(null);
+      // Si la session n'est pas retournée directement par signUp, tentative de connexion automatique avec l'e-mail/mot de passe
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (!signInErr && signInData?.user) {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('owner_id', signInData.user.id)
+          .limit(1);
+
+        setLoading(false);
+        if (!companies || companies.length === 0) {
+          window.location.href = '/onboarding';
+        } else {
+          window.location.href = '/dashboard';
+        }
+        return;
+      }
+
+      // Redirection fluide sans bloquer sur l'écran d'e-mail
+      setSuccess("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
       setLoading(false);
-      setShowEmailVerificationScreen(true);
+      setActiveTab('login');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inattendue est survenue.';
       setError(errorMsg);
@@ -756,9 +791,23 @@ export default function AuthCard() {
 
               {/* Alert Blocks */}
               {error && (
-                <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 flex gap-3 text-xs text-rose-600 font-medium animate-fadeIn">
-                  <AlertCircle className="h-4.5 w-4.5 shrink-0 text-rose-500" />
-                  <span>{error}</span>
+                <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 space-y-3 text-xs text-rose-600 font-medium animate-fadeIn">
+                  <div className="flex gap-3 items-start">
+                    <AlertCircle className="h-4.5 w-4.5 shrink-0 text-rose-500 mt-0.5" />
+                    <span className="leading-relaxed">{error}</span>
+                  </div>
+                  {(error.toLowerCase().includes("rate limit") || error.toLowerCase().includes("limite d'envoi") || error.toLowerCase().includes("quota") || error.toLowerCase().includes("non configurées")) && (
+                    <div className="pt-2 border-t border-rose-200/60 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-rose-700 font-semibold">Besoin d&apos;accéder immédiatement à l&apos;application ?</span>
+                      <button
+                        type="button"
+                        onClick={handleDemoMode}
+                        className="shrink-0 px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-all shadow-sm"
+                      >
+                        Lancer le Mode Démo →
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

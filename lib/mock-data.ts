@@ -1,4 +1,4 @@
-import { Client, Invoice, InvoiceItem, Company, Expense, Boutique, Produit, MouvementStock, Vente, Abonnement } from './types';
+import { Client, Invoice, InvoiceItem, Company, Expense, Boutique, Produit, MouvementStock, Vente, Abonnement, Compteur, Releve, Tarif } from './types';
 
 export const mockCompany: Company = {
   id: 'comp-1',
@@ -73,8 +73,53 @@ export const mockInvoiceItems: Record<string, InvoiceItem[]> = {
   ],
   'inv-6': [
     { description: 'Création de logo et charte graphique', quantity: 1, unit_price: 350000, total: 350000 },
+  ],
+  'inv-eau-1': [
+    { description: 'Consommation d\'eau — 45 m³ (Index: 1205 -> 1250)', quantity: 45, unit_price: 450, total: 20250 },
+  ],
+  'inv-elec-1': [
+    { description: 'Consommation d\'électricité — 320 kWh (Index: 8080 -> 8400)', quantity: 320, unit_price: 110, total: 35200 },
+  ],
+  'inv-wifi-1': [
+    { description: 'Abonnement Internet Fibre Optique — 1 mois (100 Mbps)', quantity: 1, unit_price: 25000, total: 25000 },
   ]
 };
+
+export const mockCompteurs: Compteur[] = [
+  {
+    id: 'cpt-eau-1',
+    client_id: 'cli-1',
+    boutique_id: 'bout-1',
+    type: 'eau',
+    numero_compteur: 'EAU-77829-DK',
+    unite: 'm3',
+    date_installation: '2025-01-15',
+    created_at: '2025-01-15T08:00:00Z',
+    client: mockClients[0]
+  },
+  {
+    id: 'cpt-elec-1',
+    client_id: 'cli-2',
+    boutique_id: 'bout-1',
+    type: 'electricite',
+    numero_compteur: 'EL-99014-AB',
+    unite: 'kWh',
+    date_installation: '2025-02-01',
+    created_at: '2025-02-01T08:00:00Z',
+    client: mockClients[1]
+  },
+  {
+    id: 'cpt-conn-1',
+    client_id: 'cli-3',
+    boutique_id: 'bout-1',
+    type: 'connexion',
+    numero_compteur: 'FBR-4412-BMK',
+    unite: 'forfait',
+    date_installation: '2025-03-10',
+    created_at: '2025-03-10T08:00:00Z',
+    client: mockClients[2]
+  }
+];
 
 export const mockInvoices: Invoice[] = [
   {
@@ -89,6 +134,7 @@ export const mockInvoices: Invoice[] = [
     tva: 324000,
     total: 2124000,
     notes: 'Paiement reçu par Wave le 12 mai. Merci pour votre confiance !',
+    type_facture: 'produits',
     client: mockClients[0]
   },
   {
@@ -103,7 +149,59 @@ export const mockInvoices: Invoice[] = [
     tva: 135000,
     total: 885000,
     notes: 'Paiement attendu par virement bancaire ou Orange Money.',
+    type_facture: 'produits',
     client: mockClients[1]
+  },
+  {
+    id: 'inv-eau-1',
+    company_id: 'comp-1',
+    client_id: 'cli-1',
+    compteur_id: 'cpt-eau-1',
+    invoice_number: 'FAC-EAU-2026-001',
+    status: 'sent',
+    issue_date: '2026-05-12',
+    due_date: '2026-06-01',
+    subtotal: 20250,
+    tva: 3645,
+    total: 23895,
+    notes: 'Facture d\'eau mensuelle - Compteur N° EAU-77829-DK',
+    type_facture: 'eau',
+    client: mockClients[0],
+    compteur: mockCompteurs[0]
+  },
+  {
+    id: 'inv-elec-1',
+    company_id: 'comp-1',
+    client_id: 'cli-2',
+    compteur_id: 'cpt-elec-1',
+    invoice_number: 'FAC-ELEC-2026-001',
+    status: 'paid',
+    issue_date: '2026-05-14',
+    due_date: '2026-05-28',
+    subtotal: 35200,
+    tva: 6336,
+    total: 41536,
+    notes: 'Paiement effectué par Orange Money.',
+    type_facture: 'electricite',
+    client: mockClients[1],
+    compteur: mockCompteurs[1]
+  },
+  {
+    id: 'inv-wifi-1',
+    company_id: 'comp-1',
+    client_id: 'cli-3',
+    compteur_id: 'cpt-conn-1',
+    invoice_number: 'FAC-WIFI-2026-001',
+    status: 'sent',
+    issue_date: '2026-05-15',
+    due_date: '2026-06-01',
+    subtotal: 25000,
+    tva: 4500,
+    total: 29500,
+    notes: 'Forfait Mensuel Fibre Wifi Pro',
+    type_facture: 'connexion',
+    client: mockClients[2],
+    compteur: mockCompteurs[2]
   },
   {
     id: 'inv-3',
@@ -117,6 +215,7 @@ export const mockInvoices: Invoice[] = [
     tva: 765000,
     total: 5015000,
     notes: 'Facture en retard. Première relance envoyée le 16 mai.',
+    type_facture: 'produits',
     client: mockClients[2]
   },
   {
@@ -131,6 +230,7 @@ export const mockInvoices: Invoice[] = [
     tva: 216000,
     total: 1416000,
     notes: 'Brouillon - À envoyer après confirmation du devis.',
+    type_facture: 'produits',
     client: mockClients[3]
   },
   {
@@ -145,6 +245,7 @@ export const mockInvoices: Invoice[] = [
     tva: 162000,
     total: 1062000,
     notes: 'Payé par Orange Money. Reçu le 19 mai 2026.',
+    type_facture: 'produits',
     client: mockClients[4]
   },
   {
@@ -159,6 +260,7 @@ export const mockInvoices: Invoice[] = [
     tva: 63000,
     total: 413000,
     notes: null,
+    type_facture: 'produits',
     client: mockClients[0]
   }
 ];
@@ -396,7 +498,40 @@ export const mockAbonnement: Abonnement = {
   montant: null,
   cycle_facturation: null,
   statut_paiement: null,
-  created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString()
 };
+
+export const mockReleves: Releve[] = [
+  {
+    id: 'rel-1',
+    compteur_id: 'cpt-eau-1',
+    index_value: 1250,
+    date_releve: '2026-04-01',
+    source: 'manuel',
+    created_at: '2026-04-01T10:00:00Z'
+  },
+  {
+    id: 'rel-2',
+    compteur_id: 'cpt-elec-1',
+    index_value: 8400,
+    date_releve: '2026-04-01',
+    source: 'manuel',
+    created_at: '2026-04-01T10:00:00Z'
+  }
+];
+
+export const mockTarifs: Tarif[] = [
+  // Eau Tiers
+  { id: 'tar-eau-1', boutique_id: 'bout-1', type: 'eau', tranche_min: 0, tranche_max: 20, prix_unitaire: 250, actif: true, date_debut: '2026-01-01' },
+  { id: 'tar-eau-2', boutique_id: 'bout-1', type: 'eau', tranche_min: 20, tranche_max: 50, prix_unitaire: 400, actif: true, date_debut: '2026-01-01' },
+  { id: 'tar-eau-3', boutique_id: 'bout-1', type: 'eau', tranche_min: 50, tranche_max: null, prix_unitaire: 600, actif: true, date_debut: '2026-01-01' },
+  
+  // Électricité Tiers
+  { id: 'tar-elec-1', boutique_id: 'bout-1', type: 'electricite', tranche_min: 0, tranche_max: 50, prix_unitaire: 90, actif: true, date_debut: '2026-01-01' },
+  { id: 'tar-elec-2', boutique_id: 'bout-1', type: 'electricite', tranche_min: 50, tranche_max: 250, prix_unitaire: 125, actif: true, date_debut: '2026-01-01' },
+  { id: 'tar-elec-3', boutique_id: 'bout-1', type: 'electricite', tranche_min: 250, tranche_max: null, prix_unitaire: 165, actif: true, date_debut: '2026-01-01' },
+
+  // Connexion Forfait
+  { id: 'tar-conn-1', boutique_id: 'bout-1', type: 'connexion', tranche_min: 0, tranche_max: null, prix_unitaire: 25000, actif: true, date_debut: '2026-01-01' }
+];
 
 

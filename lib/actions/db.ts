@@ -182,21 +182,37 @@ export async function getInvoices(): Promise<Invoice[]> {
 
     if (!company) return [];
 
-    const { data, error } = await supabase
+    const { data: initialData, error } = await supabase
       .from('invoices')
       .select(`
         *,
-        client:clients(*)
+        client:clients(*),
+        compteur:compteurs(*)
       `)
       .eq('company_id', company.id)
       .order('created_at', { ascending: false });
 
+    let data = initialData;
+
+    // Fallback in case compteur table/join fails
     if (error || !data) {
-      return [];
+      const fallback = await supabase
+        .from('invoices')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .eq('company_id', company.id)
+        .order('created_at', { ascending: false });
+
+      if (fallback.data) {
+        data = fallback.data;
+      }
     }
 
-    return data as unknown as Invoice[];
-  } catch {
+    return (data || []) as unknown as Invoice[];
+  } catch (err) {
+    console.error('Error fetching invoices:', err);
     return [];
   }
 }
@@ -214,12 +230,13 @@ export async function getInvoiceById(id: string): Promise<{ invoice: Invoice; it
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
-    // Fetch invoice with client details
+    // Fetch invoice with client and compteur details
     const { data: invoice, error: invError } = await supabase
       .from('invoices')
       .select(`
         *,
-        client:clients(*)
+        client:clients(*),
+        compteur:compteurs(*)
       `)
       .eq('id', id)
       .single();
@@ -257,6 +274,8 @@ export async function createInvoiceAction(
     
     const mockNewInvoice: Invoice = {
       ...invoiceData,
+      type_facture: invoiceData.type_facture || 'produits',
+      compteur_id: invoiceData.compteur_id || null,
       id: newInvoiceId,
       company_id: 'comp-1',
       client: selectedClient
@@ -301,11 +320,14 @@ export async function createInvoiceAction(
         subtotal: invoiceData.subtotal,
         tva: invoiceData.tva,
         total: invoiceData.total,
-        notes: invoiceData.notes
+        notes: invoiceData.notes,
+        type_facture: invoiceData.type_facture || 'produits',
+        compteur_id: invoiceData.compteur_id || null
       })
       .select(`
         *,
-        client:clients(*)
+        client:clients(*),
+        compteur:compteurs(*)
       `)
       .single();
 

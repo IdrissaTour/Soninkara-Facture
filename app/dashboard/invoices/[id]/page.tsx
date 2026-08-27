@@ -284,7 +284,29 @@ export default function InvoiceDetailPage({ params }: PageProps) {
               )}
               <span className="text-xl font-black tracking-tight text-slate-900">{currentCompany.name}</span>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">FACTURE</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">FACTURE</h2>
+              {invoice.type_facture === 'eau' && (
+                <span className="rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1 text-xs font-bold text-sky-700">
+                  💧 Eau
+                </span>
+              )}
+              {invoice.type_facture === 'electricite' && (
+                <span className="rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 text-xs font-bold text-amber-700">
+                  ⚡ Électricité
+                </span>
+              )}
+              {invoice.type_facture === 'connexion' && (
+                <span className="rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                  📶 Wifi / Internet
+                </span>
+              )}
+              {(invoice.type_facture === 'produits' || !invoice.type_facture) && (
+                <span className="rounded-lg bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-xs font-bold text-indigo-700">
+                  📦 Produits
+                </span>
+              )}
+            </div>
             <p className="text-xs font-bold text-brand-600 mt-1">{invoice.invoice_number}</p>
           </div>
 
@@ -311,33 +333,47 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
         {/* Invoice Metadata (Dates, Status) & Client details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-8 border-b border-slate-100">
-          {/* Bill To */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Facturé à</span>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5">
-              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-slate-400" />
-                {invoice.client?.name}
-              </h4>
-              {invoice.client?.address && (
-                <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
-                  <span>{invoice.client.address}</span>
-                </p>
-              )}
-              {invoice.client?.phone && (
-                <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                  <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                  <span>{invoice.client.phone}</span>
-                </p>
-              )}
-              {invoice.client?.email && (
-                <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                  <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                  <span>{invoice.client.email}</span>
-                </p>
-              )}
+          {/* Bill To & Compteur details */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Facturé à</span>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5 text-slate-400" />
+                  {invoice.client?.name}
+                </h4>
+                {invoice.client?.address && (
+                  <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                    <span>{invoice.client.address}</span>
+                  </p>
+                )}
+                {invoice.client?.phone && (
+                  <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>{invoice.client.phone}</span>
+                  </p>
+                )}
+                {invoice.client?.email && (
+                  <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span>{invoice.client.email}</span>
+                  </p>
+                )}
+              </div>
             </div>
+
+            {invoice.compteur && (
+              <div className="p-3.5 bg-brand-50/50 rounded-2xl border border-brand-100 space-y-1">
+                <span className="text-[10px] font-bold text-brand-700 uppercase tracking-wider block">Détails Compteur / Service</span>
+                <p className="text-xs font-bold text-slate-800">
+                  N° Compteur : <span className="font-mono text-brand-700">{invoice.compteur.numero_compteur || invoice.compteur.id.substring(0, 8)}</span>
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  Type : {invoice.compteur.type === 'eau' ? 'Compteur Eau (m³)' : invoice.compteur.type === 'electricite' ? 'Compteur Électricité (kWh)' : 'Abonnement Internet Wifi'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Dates & Status info */}

@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send, Mic, X } from 'lucide-react';
 import { calculateInvoiceTotals, formatFCFA } from '@/lib/utils/invoice';
-import { Client } from '@/lib/types';
+import { Client, InvoiceType } from '@/lib/types';
 import { getClients, createInvoiceAction, getInvoices } from '@/lib/actions/db';
 
 import BoutonVocalFacture, { ExtractedFacture } from '@/components/voice/BoutonVocalFacture';
 import QuickCreateClientModal from '@/components/clients/QuickCreateClientModal';
+import InvoiceTypeSelector from '@/components/invoices/InvoiceTypeSelector';
+import CompteurInvoiceForm from '@/components/invoices/CompteurInvoiceForm';
+import ForfaitInvoiceForm from '@/components/invoices/ForfaitInvoiceForm';
 
 interface FormItem {
   description: string;
@@ -17,12 +20,17 @@ interface FormItem {
   unit_price: string;
 }
 
-export default function NewInvoicePage() {
+function NewInvoiceContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTypeParam = searchParams.get('type') as InvoiceType | null;
+
+  const [selectedType, setSelectedType] = useState<InvoiceType | null>(initialTypeParam);
+
   const [clients, setClients] = useState<Client[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  
-  // Form fields state
+
+  // Form fields state for Produits
   const [clientId, setClientId] = useState('');
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -51,7 +59,6 @@ export default function NewInvoicePage() {
   const [niveauConfiance, setNiveauConfiance] = useState<'haute' | 'moyenne' | 'basse' | ''>('');
 
   const handleFactureExtraite = (facture: ExtractedFacture, texteTranscrit: string) => {
-    // 1. Tenter d'associer le client
     if (facture.client_nom) {
       const targetName = facture.client_nom.toLowerCase();
       const matchedClient = clients.find(
@@ -62,7 +69,6 @@ export default function NewInvoicePage() {
       }
     }
 
-    // 2. Pré-remplir la ligne de facture
     if (facture.produit || facture.quantite || facture.prix_unitaire) {
       setItems([
         {
@@ -86,7 +92,7 @@ export default function NewInvoicePage() {
           getInvoices()
         ]);
         setClients(clis);
-        
+
         const year = new Date().getFullYear();
         const count = invs.length + 1;
         setInvoiceNumber(`FAC-${year}-${String(count).padStart(3, '0')}`);
@@ -115,7 +121,7 @@ export default function NewInvoicePage() {
     setItems(updated);
   };
 
-  // Real-time calculations
+  // Real-time calculations for Produits
   const parsedItemsForCalculation = items.map(item => ({
     quantity: parseFloat(item.quantity) || 0,
     unit_price: parseFloat(item.unit_price) || 0
@@ -127,7 +133,6 @@ export default function NewInvoicePage() {
   const handleSave = async (status: 'draft' | 'sent') => {
     setFormError('');
 
-    // Validations
     if (!clientId) {
       setFormError('Veuillez sélectionner un client.');
       return;
@@ -139,7 +144,6 @@ export default function NewInvoicePage() {
       return;
     }
 
-    // Refresh count just in case other invoices were added in the meantime
     let finalInvoiceNumber = invoiceNumber;
     try {
       const latestInvoices = await getInvoices();
@@ -162,6 +166,7 @@ export default function NewInvoicePage() {
       tva,
       total,
       notes: notes || null,
+      type_facture: 'produits' as InvoiceType
     };
 
     const itemsData = items.map(item => {
@@ -184,19 +189,54 @@ export default function NewInvoicePage() {
     }
   };
 
+  // STEP 1: If no type selected, render 4 cards selector
+  if (!selectedType) {
+    return <InvoiceTypeSelector onSelectType={(type) => setSelectedType(type)} />;
+  }
+
+  // STEP 2: Render Eau / Électricité Form
+  if (selectedType === 'eau' || selectedType === 'electricite') {
+    return (
+      <CompteurInvoiceForm
+        type={selectedType}
+        onBackToSelection={() => setSelectedType(null)}
+      />
+    );
+  }
+
+  // STEP 3: Render Connexion Forfait Form
+  if (selectedType === 'connexion') {
+    return (
+      <ForfaitInvoiceForm
+        onBackToSelection={() => setSelectedType(null)}
+      />
+    );
+  }
+
+  // STEP 4: Render Standard "Produits" Form (Existing flow)
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <Link
-            href="/dashboard/invoices"
-            className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
-          >
-            <ChevronLeft className="h-4.5 w-4.5" />
-            Retour aux factures
-          </Link>
-          <h2 className="text-xl font-bold text-slate-900">Émettre une nouvelle facture {invoiceNumber && `(${invoiceNumber})`}</h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedType(null)}
+              className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
+            >
+              <ChevronLeft className="h-4.5 w-4.5" />
+              Changer de type
+            </button>
+            <span className="text-slate-300">/</span>
+            <Link
+              href="/dashboard/invoices"
+              className="text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors"
+            >
+              Factures
+            </Link>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">Émettre une nouvelle facture Produits {invoiceNumber && `(${invoiceNumber})`}</h2>
         </div>
         <button
           type="button"
@@ -468,12 +508,13 @@ export default function NewInvoicePage() {
                   <Save className="h-4 w-4" />
                   Sauvegarder comme brouillon
                 </button>
-                <Link
-                  href="/dashboard/invoices"
+                <button
+                  type="button"
+                  onClick={() => setSelectedType(null)}
                   className="w-full flex items-center justify-center rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Annuler
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -489,7 +530,6 @@ export default function NewInvoicePage() {
           />
           
           <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-150 animate-scaleIn">
-            {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
@@ -505,13 +545,13 @@ export default function NewInvoicePage() {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="py-6">
               <BoutonVocalFacture onFactureExtraite={handleFactureExtraite} />
             </div>
           </div>
         </div>
       )}
+
       {/* Quick Client Creation Modal */}
       <QuickCreateClientModal
         isOpen={showNewClientModal}
@@ -519,5 +559,13 @@ export default function NewInvoicePage() {
         onClientCreated={handleClientCreated}
       />
     </div>
+  );
+}
+
+export default function NewInvoicePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400">Chargement...</div>}>
+      <NewInvoiceContent />
+    </Suspense>
   );
 }

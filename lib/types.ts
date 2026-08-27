@@ -21,6 +21,44 @@ export interface Client {
   created_at?: string;
 }
 
+export type CompteurType = 'eau' | 'electricite' | 'connexion';
+export type InvoiceType = 'produits' | 'eau' | 'electricite' | 'connexion';
+
+export interface Compteur {
+  id: string;
+  client_id: string;
+  boutique_id: string;
+  type: CompteurType;
+  numero_compteur: string | null;
+  unite: string; // 'm3', 'kWh', 'Go', 'forfait'
+  date_installation?: string | null;
+  created_at?: string;
+
+  // Joined fields for display
+  client?: Client;
+}
+
+export interface Releve {
+  id: string;
+  compteur_id: string;
+  index_value: number;
+  date_releve: string;
+  source?: 'manuel' | 'estime';
+  created_at?: string;
+}
+
+export interface Tarif {
+  id: string;
+  boutique_id: string;
+  type: CompteurType;
+  tranche_min: number;
+  tranche_max: number | null; // null = pas de plafond
+  prix_unitaire: number;
+  actif: boolean;
+  date_debut: string;
+  date_fin?: string | null;
+}
+
 export interface Invoice {
   id: string;
   company_id: string;
@@ -33,10 +71,13 @@ export interface Invoice {
   tva: number; // 18%
   total: number;
   notes: string | null;
+  type_facture?: InvoiceType;
+  compteur_id?: string | null;
   created_at?: string;
   
   // Joined fields for display
   client?: Client;
+  compteur?: Compteur;
 }
 
 export interface InvoiceItem {

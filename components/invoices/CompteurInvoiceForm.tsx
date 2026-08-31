@@ -35,6 +35,17 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
   const [compteurId, setCompteurId] = useState('');
   const [previousIndex, setPreviousIndex] = useState<number>(0);
   const [newIndexInput, setNewIndexInput] = useState<string>('');
+  const [billingMode, setBillingMode] = useState<'fixed' | 'tiered'>('fixed');
+  const [customUnitPrice, setCustomUnitPrice] = useState<string>(type === 'eau' ? '400' : '110');
+  
+  // Consumption Period
+  const [periodeDebut, setPeriodeDebut] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [periodeFin, setPeriodeFin] = useState(() => new Date().toISOString().split('T')[0]);
+
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(() => {
     const nextMonth = new Date();
@@ -42,7 +53,7 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
     return nextMonth.toISOString().split('T')[0];
   });
   const [notes, setNotes] = useState('');
-  const [applyTax, setApplyTax] = useState(true);
+  const [applyTax, setApplyTax] = useState(false); // Default false for standard local water bills
 
   // Modals & UI states
   const [showClientModal, setShowClientModal] = useState(false);
@@ -79,21 +90,25 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
   // When client changes, filter compteurs or auto-select if client has 1 meter
   const clientCompteurs = compteurs.filter(c => c.client_id === clientId);
 
-  // When compteur changes, fetch its last recorded releve index
+  // When compteur changes, fetch its last recorded releve index and update price
   useEffect(() => {
     async function loadLastReleve() {
       if (!compteurId) {
         setPreviousIndex(0);
         return;
       }
+
+      const selected = compteurs.find(c => c.id === compteurId);
+      if (selected && selected.prix_unitaire !== undefined && selected.prix_unitaire !== null) {
+        setCustomUnitPrice(String(selected.prix_unitaire));
+      }
+
       setLoadingReleve(true);
       try {
         const lastReleve = await getLastReleve(compteurId);
         if (lastReleve) {
           setPreviousIndex(lastReleve.index_value);
-          if (!newIndexInput) {
-            setNewIndexInput(String(lastReleve.index_value));
-          }
+          setNewIndexInput(prev => prev ? prev : String(lastReleve.index_value));
         } else {
           setPreviousIndex(0);
         }
@@ -105,7 +120,7 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
       }
     }
     loadLastReleve();
-  }, [compteurId]);
+  }, [compteurId, compteurs]);
 
   // Calculations
   const newIndex = parseFloat(newIndexInput) || 0;
@@ -120,7 +135,20 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
     calculationError = err instanceof Error ? err.message : 'Index invalide';
   }
 
-  const { totalAmount: subtotal, breakdown, averageUnitPrice } = calculateTieredPrice(consumption, tarifs);
+  let subtotal = 0;
+  let unitPriceToUse = 0;
+  let breakdown: Array<{ trancheMin: number; trancheMax: number | null; volume: number; prixUnitaire: number; totalTier: number }> = [];
+
+  if (billingMode === 'fixed') {
+    unitPriceToUse = parseFloat(customUnitPrice) || 0;
+    subtotal = Math.round(consumption * unitPriceToUse);
+  } else {
+    const tieredResult = calculateTieredPrice(consumption, tarifs);
+    subtotal = tieredResult.totalAmount;
+    unitPriceToUse = Math.round(tieredResult.averageUnitPrice);
+    breakdown = tieredResult.breakdown;
+  }
+
   const tva = applyTax ? Math.round(subtotal * 0.18) : 0;
   const total = subtotal + tva;
 
@@ -135,6 +163,9 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
     setCompteurId(newCompteur.id);
     if (newCompteur.client_id) {
       setClientId(newCompteur.client_id);
+    }
+    if (newCompteur.prix_unitaire) {
+      setCustomUnitPrice(String(newCompteur.prix_unitaire));
     }
   };
 
@@ -170,12 +201,15 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
         compteur_id: compteurId,
         issue_date: issueDate,
         due_date: dueDate,
+        periode_debut: periodeDebut,
+        periode_fin: periodeFin,
         notes,
         apply_tax: applyTax,
+        previous_index: previousIndex,
         new_index: newIndex,
         description,
         quantity: consumption,
-        unit_price: Math.round(averageUnitPrice),
+        unit_price: unitPriceToUse,
         subtotal,
         tva,
         total,
@@ -325,6 +359,36 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
                   required
                 />
               </div>
+
+              {/* Period Start */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  Début Période Consommation *
+                </label>
+                <input
+                  type="date"
+                  value={periodeDebut}
+                  onChange={(e) => setPeriodeDebut(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500"
+                  required
+                />
+              </div>
+
+              {/* Period End */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  Fin Période Consommation *
+                </label>
+                <input
+                  type="date"
+                  value={periodeFin}
+                  onChange={(e) => setPeriodeFin(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500"
+                  required
+                />
+              </div>
             </div>
 
             {/* Relevé de Compteur Section */}
@@ -385,6 +449,69 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
                   </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">Nouvel index − Ancien index</span>
                 </div>
+              </div>
+
+              {/* Mode de Tarification & Prix Unitaire */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3">
+                  <span className="text-xs font-bold text-slate-800">Mode de Calcul Tarifaire</span>
+                  <div className="flex items-center gap-4 text-xs font-bold">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700">
+                      <input
+                        type="radio"
+                        name="billingMode"
+                        value="fixed"
+                        checked={billingMode === 'fixed'}
+                        onChange={() => setBillingMode('fixed')}
+                        className="text-brand-600 focus:ring-brand-500"
+                      />
+                      Prix Unitaire Fixe
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700">
+                      <input
+                        type="radio"
+                        name="billingMode"
+                        value="tiered"
+                        checked={billingMode === 'tiered'}
+                        onChange={() => setBillingMode('tiered')}
+                        className="text-brand-600 focus:ring-brand-500"
+                      />
+                      Tranches Progressives
+                    </label>
+                  </div>
+                </div>
+
+                {billingMode === 'fixed' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Prix Unitaire par {unitLabel} (FCFA) *
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        value={customUnitPrice}
+                        onChange={(e) => setCustomUnitPrice(e.target.value)}
+                        placeholder="Ex: 400"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:border-brand-500"
+                        required
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">Exemple: 400 FCFA / {unitLabel}</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Calcul du Montant HT</label>
+                      <div className="px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-xs font-extrabold text-indigo-900">
+                        {consumption} {unitLabel} × {formatFCFA(parseFloat(customUnitPrice) || 0)} = {formatFCFA(subtotal)}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Le calcul appliquera les tranches tarifaires configurées ({tarifs.length} tranche(s) active(s)).
+                  </p>
+                )}
               </div>
 
               {calculationError && (

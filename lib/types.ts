@@ -31,6 +31,7 @@ export interface Compteur {
   type: CompteurType;
   numero_compteur: string | null;
   unite: string; // 'm3', 'kWh', 'Go', 'forfait'
+  prix_unitaire?: number | null; // Prix unitaire par m3/kWh par défaut
   date_installation?: string | null;
   created_at?: string;
 
@@ -73,6 +74,12 @@ export interface Invoice {
   notes: string | null;
   type_facture?: InvoiceType;
   compteur_id?: string | null;
+  ancien_index?: number | null;
+  nouveau_index?: number | null;
+  consommation?: number | null;
+  prix_unitaire_compteur?: number | null;
+  periode_debut?: string | null;
+  periode_fin?: string | null;
   created_at?: string;
   
   // Joined fields for display

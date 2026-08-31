@@ -26,6 +26,7 @@ export default function QuickCreateCompteurModal({
   const [type, setType] = useState<CompteurType>(initialType);
   const [numeroCompteur, setNumeroCompteur] = useState('');
   const [unite, setUnite] = useState(initialType === 'eau' ? 'm3' : initialType === 'electricite' ? 'kWh' : 'forfait');
+  const [prixUnitaireInput, setPrixUnitaireInput] = useState<string>(initialType === 'eau' ? '400' : initialType === 'electricite' ? '110' : '');
   const [dateInstallation, setDateInstallation] = useState(new Date().toISOString().split('T')[0]);
   
   const [loading, setLoading] = useState(false);
@@ -35,9 +36,15 @@ export default function QuickCreateCompteurModal({
 
   const handleTypeChange = (newType: CompteurType) => {
     setType(newType);
-    if (newType === 'eau') setUnite('m3');
-    else if (newType === 'electricite') setUnite('kWh');
-    else setUnite('forfait');
+    if (newType === 'eau') {
+      setUnite('m3');
+      if (!prixUnitaireInput) setPrixUnitaireInput('400');
+    } else if (newType === 'electricite') {
+      setUnite('kWh');
+      if (!prixUnitaireInput) setPrixUnitaireInput('110');
+    } else {
+      setUnite('forfait');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,11 +59,13 @@ export default function QuickCreateCompteurModal({
     setLoading(true);
 
     try {
+      const parsedPrix = parseFloat(prixUnitaireInput);
       const created = await createCompteurAction({
         client_id: clientId,
         type,
         numero_compteur: numeroCompteur.trim() || null,
         unite: unite.trim() || (type === 'eau' ? 'm3' : type === 'electricite' ? 'kWh' : 'forfait'),
+        prix_unitaire: !isNaN(parsedPrix) ? parsedPrix : null,
         date_installation: dateInstallation || null
       });
 
@@ -134,15 +143,29 @@ export default function QuickCreateCompteurModal({
             <label className="block text-xs font-bold text-slate-700 mb-1.5">Numéro de compteur / Référence</label>
             <input
               type="text"
-              placeholder="Ex: EAU-9982-DK ou CPT-001"
+              placeholder="Ex: H 21804547 ou EAU-9982-DK"
               value={numeroCompteur}
               onChange={(e) => setNumeroCompteur(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500"
             />
           </div>
 
-          {/* Unité */}
+          {/* Prix Unitaire & Unité */}
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Prix unitaire par {type === 'eau' ? 'm³' : type === 'electricite' ? 'kWh' : 'unité'} (FCFA)
+              </label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={prixUnitaireInput}
+                onChange={(e) => setPrixUnitaireInput(e.target.value)}
+                placeholder="Ex: 400"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-brand-500"
+              />
+            </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">Unité de mesure *</label>
               <input
@@ -154,15 +177,17 @@ export default function QuickCreateCompteurModal({
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Date installation</label>
-              <input
-                type="date"
-                value={dateInstallation}
-                onChange={(e) => setDateInstallation(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500"
-              />
-            </div>
+          </div>
+
+          {/* Date d'installation */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">Date d&apos;installation</label>
+            <input
+              type="date"
+              value={dateInstallation}
+              onChange={(e) => setDateInstallation(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500"
+            />
           </div>
 
           {/* Buttons */}

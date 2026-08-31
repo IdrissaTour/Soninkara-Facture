@@ -127,6 +127,7 @@ export async function createCompteurAction(
         type: data.type,
         numero_compteur: data.numero_compteur || null,
         unite: data.unite,
+        prix_unitaire: data.prix_unitaire || null,
         date_installation: data.date_installation || null
       })
       .select(`
@@ -256,7 +257,10 @@ export interface CreateMeterInvoiceParams {
   apply_tax: boolean;
 
   // Meter reading parameters (for eau/electricite)
+  previous_index?: number;
   new_index?: number;
+  periode_debut?: string;
+  periode_fin?: string;
 
   // Invoice line details
   description: string;
@@ -269,6 +273,10 @@ export interface CreateMeterInvoiceParams {
 }
 
 export async function createMeterInvoiceAction(params: CreateMeterInvoiceParams): Promise<Invoice> {
+  const consumption = params.new_index !== undefined && params.previous_index !== undefined
+    ? Math.max(0, params.new_index - params.previous_index)
+    : params.quantity;
+
   // 1. Create standard invoice using existing createInvoiceAction engine
   const invoiceData = {
     invoice_number: `FAC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -281,7 +289,13 @@ export async function createMeterInvoiceAction(params: CreateMeterInvoiceParams)
     total: params.total,
     notes: params.notes || null,
     type_facture: params.type_facture,
-    compteur_id: params.compteur_id || null
+    compteur_id: params.compteur_id || null,
+    ancien_index: params.previous_index !== undefined ? params.previous_index : null,
+    nouveau_index: params.new_index !== undefined ? params.new_index : null,
+    consommation: consumption,
+    prix_unitaire_compteur: params.unit_price,
+    periode_debut: params.periode_debut || params.issue_date,
+    periode_fin: params.periode_fin || params.due_date,
   };
 
   const itemData: Omit<InvoiceItem, 'id' | 'invoice_id'> = {

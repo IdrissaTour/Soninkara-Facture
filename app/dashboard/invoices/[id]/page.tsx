@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Printer, Calendar, Receipt, User, Mail, Phone, MapPin, Edit, Trash2, Share2, MessageCircle, Download, Loader2 } from 'lucide-react';
 import { mockCompany } from '@/lib/mock-data';
 import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
+import { numberToWordsFrench } from '@/lib/utils/number-to-words';
 import { InvoiceStatus, Invoice, InvoiceItem, Company } from '@/lib/types';
 import { clsx } from 'clsx';
 import { getInvoiceById, updateInvoiceStatusAction, deleteInvoiceAction, getCompany } from '@/lib/actions/db';
@@ -342,16 +343,16 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                   <User className="h-3.5 w-3.5 text-slate-400" />
                   {invoice.client?.name}
                 </h4>
-                {invoice.client?.address && (
-                  <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <span>{invoice.client.address}</span>
-                  </p>
-                )}
                 {invoice.client?.phone && (
                   <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
                     <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                     <span>{invoice.client.phone}</span>
+                  </p>
+                )}
+                {invoice.client?.address && (
+                  <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                    <span>{invoice.client.address}</span>
                   </p>
                 )}
                 {invoice.client?.email && (
@@ -365,12 +366,12 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
             {invoice.compteur && (
               <div className="p-3.5 bg-brand-50/50 rounded-2xl border border-brand-100 space-y-1">
-                <span className="text-[10px] font-bold text-brand-700 uppercase tracking-wider block">Détails Compteur / Service</span>
+                <span className="text-[10px] font-bold text-brand-700 uppercase tracking-wider block">Détails du Compteur</span>
                 <p className="text-xs font-bold text-slate-800">
                   N° Compteur : <span className="font-mono text-brand-700">{invoice.compteur.numero_compteur || invoice.compteur.id.substring(0, 8)}</span>
                 </p>
                 <p className="text-[11px] text-slate-600">
-                  Type : {invoice.compteur.type === 'eau' ? 'Compteur Eau (m³)' : invoice.compteur.type === 'electricite' ? 'Compteur Électricité (kWh)' : 'Abonnement Internet Wifi'}
+                  Service : {invoice.type_facture === 'eau' ? 'Consommation d\'Eau (m³)' : 'Consommation d\'Électricité (kWh)'}
                 </p>
               </div>
             )}
@@ -384,6 +385,12 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                 <Calendar className="h-3.5 w-3.5 text-slate-400" />
                 <span>Date d&apos;émission : <strong>{formatDateFrench(invoice.issue_date)}</strong></span>
               </p>
+              {(invoice.periode_debut || invoice.periode_fin) && (
+                <p className="text-xs text-slate-600 flex sm:justify-end items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Période de consommation : <strong>{invoice.periode_debut ? formatDateFrench(invoice.periode_debut) : ''} au {invoice.periode_fin ? formatDateFrench(invoice.periode_fin) : ''}</strong></span>
+                </p>
+              )}
               <p className="text-xs text-slate-600 flex sm:justify-end items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-slate-400" />
                 <span>Date d&apos;échéance : <strong>{formatDateFrench(invoice.due_date)}</strong></span>
@@ -397,63 +404,160 @@ export default function InvoiceDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Invoice Line Items Table */}
-        <div className="py-8">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-4">Détails des prestations</span>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs font-bold text-slate-500">
-                  <th className="py-3 px-2">Description</th>
-                  <th className="py-3 px-2 text-center w-20">Quantité</th>
-                  <th className="py-3 px-2 text-right w-36">Prix unitaire</th>
-                  <th className="py-3 px-2 text-right w-36">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                {items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="py-4 px-2 font-medium">{item.description}</td>
-                    <td className="py-4 px-2 text-center font-semibold">{item.quantity}</td>
-                    <td className="py-4 px-2 text-right font-semibold">{formatFCFA(item.unit_price)}</td>
-                    <td className="py-4 px-2 text-right font-bold text-slate-900">{formatFCFA(item.total)}</td>
+        {/* Specialized Meter Billing Table (for Eau & Électricité) */}
+        {(invoice.type_facture === 'eau' || invoice.type_facture === 'electricite') ? (
+          <div className="py-8 space-y-6">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100/80 border-b border-slate-200 font-bold text-slate-700">
+                    <th className="py-3 px-4" rowSpan={2}>Rubrique</th>
+                    <th className="py-2 px-4 text-center border-l border-r border-slate-200" colSpan={2}>
+                      Index ({invoice.type_facture === 'eau' ? 'm³' : 'kWh'})
+                    </th>
+                    <th className="py-3 px-4 text-center" rowSpan={2}>
+                      Consom ({invoice.type_facture === 'eau' ? 'm.m3' : 'kWh'})
+                    </th>
+                    <th className="py-3 px-4 text-right" rowSpan={2}>Prix Unitaire</th>
+                    <th className="py-3 px-4 text-right" rowSpan={2}>Montant</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 text-[11px]">
+                    <th className="py-1.5 px-3 text-center border-l border-slate-200">Nouveau</th>
+                    <th className="py-1.5 px-3 text-center border-r border-slate-200">Ancien</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-semibold text-slate-800">
+                  {items.map((item, idx) => {
+                    const newIdx = invoice.nouveau_index !== undefined && invoice.nouveau_index !== null ? invoice.nouveau_index : (invoice.ancien_index || 0) + item.quantity;
+                    const oldIdx = invoice.ancien_index !== undefined && invoice.ancien_index !== null ? invoice.ancien_index : 0;
+                    const consom = invoice.consommation !== undefined && invoice.consommation !== null ? invoice.consommation : item.quantity;
+                    const pu = invoice.prix_unitaire_compteur || item.unit_price;
 
-        {/* Total Calculations Breakdown & Notes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-100 print-avoid-break">
-          {/* Terms & Notes */}
-          <div className="space-y-3">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Notes et conditions de règlement</span>
-              <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100 min-h-16">
-                {invoice.notes || 'Aucune mention spécifique ajoutée.'}
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="py-4 px-4 font-bold text-slate-900">
+                          {invoice.type_facture === 'eau' ? 'Consommation EAU' : 'Consommation ÉLECTRICITÉ'}
+                        </td>
+                        <td className="py-4 px-3 text-center border-l border-slate-200 font-mono text-slate-900">{newIdx}</td>
+                        <td className="py-4 px-3 text-center border-r border-slate-200 font-mono text-slate-600">{oldIdx}</td>
+                        <td className="py-4 px-4 text-center font-bold text-indigo-700">{consom}</td>
+                        <td className="py-4 px-4 text-right font-mono">{pu}</td>
+                        <td className="py-4 px-4 text-right font-extrabold text-slate-900">{formatFCFA(item.total)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-slate-100/50 font-bold border-t-2 border-slate-200 text-slate-900">
+                    <td className="py-3.5 px-4 uppercase tracking-wider">Total</td>
+                    <td className="py-3.5 px-3 text-center border-l border-slate-200 font-mono">{invoice.nouveau_index || ''}</td>
+                    <td className="py-3.5 px-3 text-center border-r border-slate-200 font-mono">{invoice.ancien_index || '0'}</td>
+                    <td className="py-3.5 px-4 text-center"></td>
+                    <td className="py-3.5 px-4 text-right"></td>
+                    <td className="py-3.5 px-4 text-right text-sm font-extrabold text-brand-600">{formatFCFA(invoice.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Wording sentence matching the reference bill */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <p className="text-xs font-extrabold text-slate-900 uppercase tracking-tight">
+                LA PRESENTE FACTURE EST ARRETEE A LA SOMME DE : <span className="underline text-brand-700">{numberToWordsFrench(invoice.total)} FCFA</span>
               </p>
+              {invoice.periode_debut && invoice.periode_fin && (
+                <p className="text-[11px] font-semibold text-slate-600">
+                  Période de Consommation du {formatDateFrench(invoice.periode_debut)} au {formatDateFrench(invoice.periode_fin)}
+                </p>
+              )}
             </div>
-          </div>
 
-          {/* Totals Summary */}
-          <div className="space-y-3">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-              <div className="flex justify-between text-xs text-slate-600">
-                <span>Sous-total HT</span>
-                <span className="font-semibold text-slate-900">{formatFCFA(invoice.subtotal)}</span>
+            {/* Warning & Signature Block */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+              <div className="space-y-2">
+                <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 space-y-1">
+                  <p className="text-xs font-bold">Payable avant le {formatDateFrench(invoice.due_date)}</p>
+                  <p className="text-[10px] leading-relaxed text-amber-800">
+                    Le non paiement à la date d&apos;échéance entraîne la suspension de la fourniture sans autre préavis. La reprise ne surviendra qu&apos;après règlement des sommes dues.
+                  </p>
+                </div>
+                {invoice.notes && (
+                  <p className="text-[11px] text-slate-500 italic bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    Note : {invoice.notes}
+                  </p>
+                )}
               </div>
-              <div className="flex justify-between text-xs text-slate-600">
-                <span>{invoice.tva > 0 ? 'TVA (18%)' : 'TVA (Exonéré)'}</span>
-                <span className="font-semibold text-slate-900">{formatFCFA(invoice.tva)}</span>
-              </div>
-              <div className="border-t border-slate-200 my-2 pt-2 flex justify-between text-sm font-bold text-slate-900">
-                <span>Total à payer</span>
-                <span className="text-brand-600">{formatFCFA(invoice.total)}</span>
+
+              <div className="flex flex-col justify-between p-4 rounded-2xl border border-slate-200 bg-slate-50/50 min-h-[120px] text-xs">
+                <div className="flex justify-between font-bold text-slate-800 border-b border-slate-200 pb-2">
+                  <span>Le Trésorier</span>
+                  <span>Cachet / Signature</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-semibold pt-6">
+                  Facture émise le : {formatDateFrench(invoice.issue_date)} par {currentCompany.name}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          /* Standard Invoice Line Items Table (Products / Internet / Services) */
+          <>
+            <div className="py-8">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-4">Détails des prestations</span>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-xs font-bold text-slate-500">
+                      <th className="py-3 px-2">Description</th>
+                      <th className="py-3 px-2 text-center w-20">Quantité</th>
+                      <th className="py-3 px-2 text-right w-36">Prix unitaire</th>
+                      <th className="py-3 px-2 text-right w-36">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                    {items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="py-4 px-2 font-medium">{item.description}</td>
+                        <td className="py-4 px-2 text-center font-semibold">{item.quantity}</td>
+                        <td className="py-4 px-2 text-right font-semibold">{formatFCFA(item.unit_price)}</td>
+                        <td className="py-4 px-2 text-right font-bold text-slate-900">{formatFCFA(item.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Total Calculations Breakdown & Notes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-100 print-avoid-break">
+              {/* Terms & Notes */}
+              <div className="space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Notes et conditions de règlement</span>
+                  <p className="text-xs text-slate-500 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100 min-h-16">
+                    {invoice.notes || 'Aucune mention spécifique ajoutée.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Totals Summary */}
+              <div className="space-y-3">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                  <div className="flex justify-between text-xs text-slate-600">
+                    <span>Sous-total HT</span>
+                    <span className="font-semibold text-slate-900">{formatFCFA(invoice.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-600">
+                    <span>{invoice.tva > 0 ? 'TVA (18%)' : 'TVA (Exonéré)'}</span>
+                    <span className="font-semibold text-slate-900">{formatFCFA(invoice.tva)}</span>
+                  </div>
+                  <div className="border-t border-slate-200 my-2 pt-2 flex justify-between text-sm font-bold text-slate-900">
+                    <span>Total à payer</span>
+                    <span className="text-brand-600">{formatFCFA(invoice.total)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Professional Footer message */}
         <div className="mt-16 text-center text-[10px] text-slate-400 font-semibold border-t border-slate-100 pt-6">

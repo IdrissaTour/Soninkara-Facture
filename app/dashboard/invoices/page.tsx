@@ -42,11 +42,19 @@ function InvoicesContent() {
 
   const [sortField, setSortField] = useState<'date' | 'total'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const data = await getInvoices();
-      setInvoices(data);
+      setLoading(true);
+      try {
+        const data = await getInvoices();
+        setInvoices(data);
+      } catch (err) {
+        console.error('Error loading invoices:', err);
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
   }, []);
@@ -62,8 +70,10 @@ function InvoicesContent() {
     }
   }, [initialTabParam, initialTypeParam]);
 
+  const safeInvoices = invoices || [];
+
   // Filter invoices based on main tab, sub tab, query, and status selector
-  const filteredInvoices = invoices.filter((invoice) => {
+  const filteredInvoices = safeInvoices.filter((invoice) => {
     const invType = invoice.type_facture || 'produits';
 
     // 1. Filter by Main Tab
@@ -82,7 +92,7 @@ function InvoicesContent() {
     const matchesSearch =
       !query ||
       invoice.invoice_number.toLowerCase().includes(query) ||
-      invoice.client?.name.toLowerCase().includes(query) ||
+      (invoice.client?.name && invoice.client.name.toLowerCase().includes(query)) ||
       (invoice.compteur?.numero_compteur && invoice.compteur.numero_compteur.toLowerCase().includes(query));
 
     // 3. Filter by Status
@@ -158,9 +168,22 @@ function InvoicesContent() {
   };
 
   // Counts calculation for tabs
-  const chargesCount = invoices.filter(i => i.type_facture && i.type_facture !== 'produits').length;
-  const produitsCount = invoices.filter(i => !i.type_facture || i.type_facture === 'produits').length;
-  const allCount = invoices.length;
+  const chargesCount = safeInvoices.filter(i => i.type_facture && i.type_facture !== 'produits').length;
+  const produitsCount = safeInvoices.filter(i => !i.type_facture || i.type_facture === 'produits').length;
+  const allCount = safeInvoices.length;
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="h-8 w-48 rounded-xl bg-slate-200/80 animate-pulse" />
+          <div className="h-10 w-36 rounded-xl bg-slate-200/80 animate-pulse" />
+        </div>
+        <div className="h-14 w-full rounded-2xl bg-slate-200/80 animate-pulse" />
+        <div className="h-96 w-full rounded-3xl bg-slate-200/80 animate-pulse" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn">

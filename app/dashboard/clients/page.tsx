@@ -11,11 +11,19 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const data = await getClients();
-      setClients(data);
+      setLoading(true);
+      try {
+        const data = await getClients();
+        setClients(data);
+      } catch (err) {
+        console.error('Error loading clients:', err);
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
   }, []);
@@ -105,6 +113,23 @@ export default function ClientsPage() {
       setFormError(errorMsg);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="h-8 w-48 rounded-xl bg-slate-200/80 animate-pulse" />
+          <div className="h-10 w-36 rounded-xl bg-slate-200/80 animate-pulse" />
+        </div>
+        <div className="h-14 w-full rounded-2xl bg-slate-200/80 animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-44 rounded-2xl bg-slate-200/80 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn">

@@ -361,13 +361,22 @@ export default function EditInvoicePage({ params }: PageProps) {
 
             {/* Note text area */}
             <div className="pt-6 border-t border-slate-100">
-              <label className="block text-xs font-bold text-slate-700 mb-2">Conditions ou notes de bas de page</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-700">Conditions ou notes de bas de page</label>
+                <button
+                  type="button"
+                  onClick={() => setNotes("Le non paiement à la date d'échéance entraine la suspension de la fourniture sans autre préavis. La reprise ne surviendra qu'après règlement des sommes dues avec les frais (1000 FCFA)")}
+                  className="text-[11px] font-bold text-brand-600 hover:text-brand-700 transition-colors"
+                >
+                  Restaurer texte par défaut
+                </button>
+              </div>
               <textarea
-                placeholder="Ex: Conditions de paiement : 30 jours net. Coordonnées bancaires..."
+                placeholder="Ex: Le non paiement à la date d'échéance entraine la suspension..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none font-medium text-slate-800"
               />
             </div>
           </div>

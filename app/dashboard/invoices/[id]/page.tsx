@@ -25,6 +25,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [company, setCompany] = useState<Company | null>(null);
   const [showShareDropdown, setShowShareDropdown] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const getPdfOptions = () => {
     return {
@@ -106,17 +107,36 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   useEffect(() => {
     async function loadData() {
-      const result = await getInvoiceById(params.id);
-      if (result) {
-        setInvoice(result.invoice);
-        setItems(result.items);
-        setStatus(result.invoice.status);
+      setLoading(true);
+      try {
+        const result = await getInvoiceById(params.id);
+        if (result) {
+          setInvoice(result.invoice);
+          setItems(result.items);
+          setStatus(result.invoice.status);
+        }
+        const comp = await getCompany();
+        setCompany(comp);
+      } catch (err) {
+        console.error('Error loading invoice data:', err);
+      } finally {
+        setLoading(false);
       }
-      const comp = await getCompany();
-      setCompany(comp);
     }
     loadData();
   }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-fadeIn max-w-5xl mx-auto">
+        <div className="flex justify-between items-center">
+          <div className="h-8 w-44 rounded-xl bg-slate-200/80 animate-pulse" />
+          <div className="h-10 w-32 rounded-xl bg-slate-200/80 animate-pulse" />
+        </div>
+        <div className="h-[600px] w-full rounded-3xl bg-slate-200/80 animate-pulse" />
+      </div>
+    );
+  }
 
   if (!invoice) {
     return (

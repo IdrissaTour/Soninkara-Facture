@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send, Mic, X } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Save, Receipt, Calendar, User, Send, Mic, X, AlertTriangle } from 'lucide-react';
 import { calculateInvoiceTotals, formatFCFA } from '@/lib/utils/invoice';
 import { Client, InvoiceType } from '@/lib/types';
 import { getClients, createInvoiceAction, getInvoices } from '@/lib/actions/db';
@@ -39,8 +39,11 @@ function NewInvoiceContent() {
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     return nextMonth.toISOString().split('T')[0];
   });
-  const [notes, setNotes] = useState('');
+const DEFAULT_PRODUITS_NOTES = "Le non paiement à la date d'échéance entraine la suspension de la fourniture sans autre préavis. La reprise ne surviendra qu'après règlement des sommes dues avec les frais (1000 FCFA)";
+
+  const [notes, setNotes] = useState(DEFAULT_PRODUITS_NOTES);
   const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [applyTax, setApplyTax] = useState(true);
 
   const handleClientCreated = (newClient: Client) => {
@@ -144,6 +147,8 @@ function NewInvoiceContent() {
       return;
     }
 
+    setIsSubmitting(true);
+
     let finalInvoiceNumber = invoiceNumber;
     try {
       const latestInvoices = await getInvoices();
@@ -182,10 +187,17 @@ function NewInvoiceContent() {
 
     try {
       const savedInvoice = await createInvoiceAction(invoiceData, itemsData);
-      router.push(`/dashboard/invoices/${savedInvoice.id}`);
+      if (savedInvoice && savedInvoice.id) {
+        router.push(`/dashboard/invoices/${savedInvoice.id}`);
+      } else {
+        setFormError('Erreur lors de la création de la facture.');
+        setIsSubmitting(false);
+      }
     } catch (err) {
+      console.error('Error saving invoice:', err);
       const errorMsg = err instanceof Error ? err.message : 'Erreur lors de la création de la facture.';
       setFormError(errorMsg);
+      setIsSubmitting(false);
     }
   };
 
@@ -438,13 +450,22 @@ function NewInvoiceContent() {
 
             {/* Note text area */}
             <div className="pt-6 border-t border-slate-100">
-              <label className="block text-xs font-bold text-slate-700 mb-2">Conditions ou notes de bas de page</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-700">Conditions ou notes de bas de page</label>
+                <button
+                  type="button"
+                  onClick={() => setNotes(DEFAULT_PRODUITS_NOTES)}
+                  className="text-[11px] font-bold text-brand-600 hover:text-brand-700 transition-colors"
+                >
+                  Restaurer texte par défaut
+                </button>
+              </div>
               <textarea
-                placeholder="Ex: Conditions de paiement : 30 jours net. Coordonnées bancaires pour virement..."
+                placeholder="Ex: Le non paiement à la date d'échéance entraine la suspension..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 resize-none font-medium text-slate-800"
               />
             </div>
           </div>
@@ -490,28 +511,38 @@ function NewInvoiceContent() {
                 </div>
               </div>
 
+              {formError && (
+                <div className="mt-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-bold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               {/* Form buttons */}
               <div className="mt-8 space-y-3">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => handleSave('sent')}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-md shadow-brand-600/10"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 py-3.5 text-xs font-bold text-white hover:bg-brand-700 transition-colors shadow-md shadow-brand-600/10 disabled:opacity-50"
                 >
                   <Send className="h-4 w-4" />
-                  Enregistrer
+                  {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
                 </button>
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => handleSave('draft')}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow-md"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 py-3.5 text-xs font-bold text-white hover:bg-slate-800 transition-colors shadow-md disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" />
-                  Sauvegarder comme brouillon
+                  {isSubmitting ? 'Sauvegarde...' : 'Sauvegarder comme brouillon'}
                 </button>
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setSelectedType(null)}
-                  className="w-full flex items-center justify-center rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center justify-center rounded-xl border border-slate-200 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
                 >
                   Annuler
                 </button>

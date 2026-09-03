@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Plus, Save, Send, Wifi, User, Calendar, Clock } from 'lucide-react';
+import { ChevronLeft, Plus, Save, Send, Wifi, User, Calendar, Clock, AlertTriangle } from 'lucide-react';
 import { Client, Compteur } from '@/lib/types';
 import { getClients, getInvoices } from '@/lib/actions/db';
 import { getCompteurs, getTarifs, createMeterInvoiceAction } from '@/lib/actions/meter';
@@ -15,6 +15,8 @@ import QuickCreateCompteurModal from '@/components/compteurs/QuickCreateCompteur
 interface ForfaitInvoiceFormProps {
   onBackToSelection: () => void;
 }
+
+const DEFAULT_FORFAIT_NOTES = "Le non paiement à la date d'échéance entraine la suspension de la fourniture sans autre préavis. La reprise ne surviendra qu'après règlement des sommes dues avec les frais (1000 FCFA)";
 
 export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoiceFormProps) {
   const router = useRouter();
@@ -35,7 +37,7 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     return nextMonth.toISOString().split('T')[0];
   });
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(DEFAULT_FORFAIT_NOTES);
   const [applyTax, setApplyTax] = useState(true);
 
   // Modals & UI states
@@ -71,7 +73,36 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
     initData();
   }, []);
 
-  const clientCompteurs = compteurs.filter(c => c.client_id === clientId);
+  const safeCompteurs = (compteurs || []).filter((c): c is Compteur => Boolean(c && c.id));
+  const safeClients = (clients || []).filter((c): c is Client => Boolean(c && c.id));
+
+  const clientCompteurs = safeCompteurs.filter(c => c.client_id === clientId);
+
+  useEffect(() => {
+    if (!clientId) {
+      setCompteurId('');
+      return;
+    }
+    const matchingMeters = safeCompteurs.filter(c => c.client_id === clientId);
+    if (matchingMeters.length >= 1) {
+      const stillValid = matchingMeters.some(c => c.id === compteurId);
+      if (!stillValid) {
+        setCompteurId(matchingMeters[0].id);
+      }
+    } else {
+      setCompteurId('');
+    }
+  }, [clientId, safeCompteurs]);
+
+  const handleCompteurSelect = (selectedId: string) => {
+    setCompteurId(selectedId);
+    if (selectedId) {
+      const selectedMeter = safeCompteurs.find(c => c.id === selectedId);
+      if (selectedMeter && selectedMeter.client_id) {
+        setClientId(selectedMeter.client_id);
+      }
+    }
+  };
 
   // Calculations
   const subtotal = (durationMonths || 0) * (monthlyPrice || 0);
@@ -79,12 +110,14 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
   const total = subtotal + tva;
 
   const handleClientCreated = (newClient: Client) => {
-    setClients(prev => [newClient, ...prev]);
+    if (!newClient || !newClient.id) return;
+    setClients(prev => [newClient, ...(prev || []).filter(Boolean)]);
     setClientId(newClient.id);
   };
 
   const handleCompteurCreated = (newCompteur: Compteur) => {
-    setCompteurs(prev => [newCompteur, ...prev]);
+    if (!newCompteur || !newCompteur.id) return;
+    setCompteurs(prev => [newCompteur, ...(prev || []).filter(Boolean)]);
     setCompteurId(newCompteur.id);
     if (newCompteur.client_id) {
       setClientId(newCompteur.client_id);
@@ -129,8 +162,14 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
         status
       });
 
-      router.push(`/dashboard/invoices/${createdInvoice.id}`);
+      if (createdInvoice && createdInvoice.id) {
+        router.push(`/dashboard/invoices/${createdInvoice.id}`);
+      } else {
+        setFormError('Erreur lors de la création du forfait.');
+        setIsSubmitting(false);
+      }
     } catch (err) {
+      console.error('Error saving forfait invoice:', err);
       const msg = err instanceof Error ? err.message : 'Erreur lors de la création du forfait.';
       setFormError(msg);
       setIsSubmitting(false);
@@ -201,15 +240,12 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
                 </div>
                 <select
                   value={clientId}
-                  onChange={(e) => {
-                    setClientId(e.target.value);
-                    setCompteurId('');
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 bg-white"
+                  onChange={(e) => setClientId(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 bg-white font-medium"
                   required
                 >
                   <option value="">-- Choisir un client --</option>
-                  {clients.map(c => (
+                  {safeClients.map(c => (
                     <option key={c.id} value={c.id}>{c.name} ({c.phone || c.email || 'Sans contact'})</option>
                   ))}
                 </select>
@@ -230,11 +266,11 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
                 </div>
                 <select
                   value={compteurId}
-                  onChange={(e) => setCompteurId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 bg-white"
+                  onChange={(e) => handleCompteurSelect(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 bg-white font-medium"
                 >
                   <option value="">-- Ligne par défaut --</option>
-                  {(clientId ? clientCompteurs : compteurs).map(c => (
+                  {(clientId ? clientCompteurs : safeCompteurs).map(c => (
                     <option key={c.id} value={c.id}>
                       {c.numero_compteur ? `Réf: ${c.numero_compteur}` : `Ligne #${c.id.substring(0,6)}`}
                     </option>
@@ -324,13 +360,22 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
 
             {/* Notes */}
             <div className="pt-6 border-t border-slate-100">
-              <label className="block text-xs font-bold text-slate-700 mb-2">Conditions de l&apos;abonnement ou notes</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-700">Conditions de l&apos;abonnement ou notes</label>
+                <button
+                  type="button"
+                  onClick={() => setNotes(DEFAULT_FORFAIT_NOTES)}
+                  className="text-[11px] font-bold text-brand-600 hover:text-brand-700 transition-colors"
+                >
+                  Restaurer texte par défaut
+                </button>
+              </div>
               <textarea
-                placeholder="Ex: Forfait Fibre Pro 100 Mbps. Reconnexion automatique sous 24h après règlement..."
+                placeholder="Ex: Le non paiement à la date d'échéance entraine la suspension..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 resize-none"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-500 resize-none font-medium text-slate-800"
               />
             </div>
           </div>
@@ -383,6 +428,13 @@ export default function ForfaitInvoiceForm({ onBackToSelection }: ForfaitInvoice
                   <span className="text-brand-600 text-base">{formatFCFA(total)}</span>
                 </div>
               </div>
+
+              {formError && (
+                <div className="mt-4 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-bold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <span>{formError}</span>
+                </div>
+              )}
 
               {/* Submit Buttons */}
               <div className="mt-8 space-y-3">

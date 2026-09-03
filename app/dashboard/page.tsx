@@ -22,22 +22,27 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [invs, clis, comp, exps, alerts] = await Promise.all([
+        const [invs, clis, comp, exps] = await Promise.all([
           getInvoices(),
           getClients(),
           getCompany(),
-          getExpenses(),
-          getAllStockAlerts()
+          getExpenses()
         ]);
         setInvoices(invs);
         setClients(clis);
         setCompany(comp);
         setExpenses(exps);
-        setStockAlerts(alerts);
       } catch (err) {
         console.error('Error loading dashboard data:', err);
       } finally {
         setLoading(false);
+      }
+
+      try {
+        const alerts = await getAllStockAlerts();
+        setStockAlerts(alerts);
+      } catch (err) {
+        console.error('Error loading stock alerts:', err);
       }
     }
     loadData();
@@ -213,9 +218,22 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fadeIn">
-        <div className="h-9 w-9 animate-spin rounded-full border-4 border-slate-200 border-t-brand-600 mb-3"></div>
-        <p className="text-xs text-slate-500 font-bold">Chargement du tableau de bord...</p>
+      <div className="space-y-8 animate-fadeIn">
+        {/* Welcome Banner Skeleton */}
+        <div className="h-44 w-full rounded-3xl bg-slate-200/80 animate-pulse" />
+
+        {/* KPI Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-32 rounded-2xl bg-slate-200/80 animate-pulse" />
+          ))}
+        </div>
+
+        {/* Chart & Activity Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 h-96 rounded-3xl bg-slate-200/80 animate-pulse" />
+          <div className="h-96 rounded-3xl bg-slate-200/80 animate-pulse" />
+        </div>
       </div>
     );
   }

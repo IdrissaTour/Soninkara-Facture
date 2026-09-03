@@ -680,24 +680,73 @@ export async function getBoutiqueStats(boutiqueId: string): Promise<BoutiqueStat
 }
 
 export async function getAllStockAlerts(): Promise<StockAlert[]> {
-  const boutiques = await getBoutiques();
-  const alerts: StockAlert[] = [];
+  if (!isSupabaseConfigured()) {
+    const alerts: StockAlert[] = [];
+    mockBoutiques.forEach(b => {
+      const prods = mockProduits.filter(p => p.boutique_id === b.id);
+      prods.forEach(p => {
+        if (p.quantite_stock <= p.seuil_alerte) {
+          alerts.push({
+            produitId: p.id,
+            produitNom: p.nom,
+            boutiqueId: b.id,
+            boutiqueNom: b.nom,
+            quantiteStock: p.quantite_stock,
+            seuilAlerte: p.seuil_alerte
+          });
+        }
+      });
+    });
+    return alerts;
+  }
 
-  for (const b of boutiques) {
-    const prods = await getProduits(b.id);
-    prods.forEach(p => {
-      if (p.quantite_stock <= p.seuil_alerte) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('owner_id', user.id)
+      .maybeSingle();
+
+    if (!company) return [];
+
+    const { data: boutiques } = await supabase
+      .from('boutiques')
+      .select('id, nom')
+      .eq('company_id', company.id);
+
+    if (!boutiques || boutiques.length === 0) return [];
+
+    const boutiqueIds = boutiques.map(b => b.id);
+    const boutiqueMap = new Map(boutiques.map(b => [b.id, b.nom]));
+
+    const { data: produits } = await supabase
+      .from('produits')
+      .select('*')
+      .in('boutique_id', boutiqueIds);
+
+    if (!produits) return [];
+
+    const alerts: StockAlert[] = [];
+    produits.forEach(p => {
+      if (p.quantite_stock <= (p.seuil_alerte || 5)) {
         alerts.push({
           produitId: p.id,
           produitNom: p.nom,
-          boutiqueId: b.id,
-          boutiqueNom: b.nom,
+          boutiqueId: p.boutique_id,
+          boutiqueNom: boutiqueMap.get(p.boutique_id) || 'Boutique',
           quantiteStock: p.quantite_stock,
-          seuilAlerte: p.seuil_alerte
+          seuilAlerte: p.seuil_alerte || 5
         });
       }
     });
-  }
 
-  return alerts;
+    return alerts;
+  } catch (err) {
+    console.error('Error fetching stock alerts:', err);
+    return [];
+  }
 }

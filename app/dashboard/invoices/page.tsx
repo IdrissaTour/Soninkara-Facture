@@ -8,6 +8,7 @@ import { formatFCFA, formatDateFrench } from '@/lib/utils/invoice';
 import { InvoiceStatus, Invoice, InvoiceType } from '@/lib/types';
 import { clsx } from 'clsx';
 import { getInvoices } from '@/lib/actions/db';
+import { getAutresInvoices } from '@/lib/actions/other-invoices';
 
 type MainTab = 'all' | 'charges' | 'produits';
 type ChargeSubTab = 'all' | 'eau' | 'electricite' | 'connexion';
@@ -48,8 +49,15 @@ function InvoicesContent() {
     async function loadData() {
       setLoading(true);
       try {
-        const data = await getInvoices();
-        setInvoices(data);
+        const [stdInvoices, autresInvoices] = await Promise.all([
+          getInvoices(),
+          getAutresInvoices()
+        ]);
+        const mappedAutres = autresInvoices.map(a => ({
+          ...a,
+          type_facture: a.type_facture as InvoiceType
+        }));
+        setInvoices([...stdInvoices, ...(mappedAutres as unknown as Invoice[])]);
       } catch (err) {
         console.error('Error loading invoices:', err);
       } finally {

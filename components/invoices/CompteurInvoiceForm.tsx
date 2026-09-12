@@ -188,6 +188,8 @@ export default function CompteurInvoiceForm({ type, onBackToSelection }: Compteu
     if (!newClient || !newClient.id) return;
     setClients(prev => [newClient, ...(prev || []).filter(Boolean)]);
     setClientId(newClient.id);
+    // Auto-open meter creation for this new client to complete invoice setup seamlessly
+    setShowCompteurModal(true);
   };
 
   const handleCompteurCreated = (newCompteur: Compteur) => {

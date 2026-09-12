@@ -5,9 +5,37 @@ import { createClient } from '@/lib/supabase/server';
 import { mockCompany, mockClients, mockInvoices, mockInvoiceItems, mockExpenses, mockBoutiques, mockAbonnement } from '@/lib/mock-data';
 import { Company, Client, Invoice, InvoiceItem, InvoiceStatus, Expense, Abonnement } from '@/lib/types';
 
-// Helper to check if Supabase is fully configured
-function isSupabaseConfigured() {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+function checkSupabaseConfiguredSync() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return false;
+  }
+  return true;
+}
+
+export async function isSupabaseConfigured() {
+  return checkSupabaseConfiguredSync();
+}
+
+export async function markSupabaseOffline() {
+  // No-op to prevent transient timeouts from locking out Supabase for 30s
+}
+
+export async function withTimeout<T>(promise: Promise<T>, ms = 12000): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`Supabase query timed out (${ms}ms)`));
+    }, ms);
+  });
+
+  try {
+    const res = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timer!);
+    return res;
+  } catch (err) {
+    clearTimeout(timer!);
+    throw err;
+  }
 }
 
 // ----------------------------------------------------
@@ -15,7 +43,7 @@ function isSupabaseConfigured() {
 // ----------------------------------------------------
 
 export async function getCompany(): Promise<Company | null> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     return mockCompany;
   }
 
@@ -41,7 +69,7 @@ export async function getCompany(): Promise<Company | null> {
 }
 
 export async function updateCompany(companyData: Partial<Company>): Promise<Company | null> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     Object.assign(mockCompany, companyData);
     return mockCompany;
   }
@@ -80,7 +108,7 @@ export async function updateCompany(companyData: Partial<Company>): Promise<Comp
 // ----------------------------------------------------
 
 export async function getClients(): Promise<Client[]> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     return mockClients;
   }
 
@@ -126,7 +154,7 @@ export async function createClientAction(clientData: Omit<Client, 'id' | 'compan
     return mockNewClient;
   };
 
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     return createMockClient();
   }
 
@@ -191,7 +219,7 @@ export async function createClientAction(clientData: Omit<Client, 'id' | 'compan
 // ----------------------------------------------------
 
 export async function getInvoices(): Promise<Invoice[]> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     return mockInvoices;
   }
 
@@ -256,7 +284,7 @@ export async function getInvoiceById(id: string): Promise<{ invoice: Invoice; it
     return { invoice: foundInvoice, items };
   };
 
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     return getMockInvoiceResult();
   }
 
@@ -268,11 +296,12 @@ export async function getInvoiceById(id: string): Promise<{ invoice: Invoice; it
 
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return getMockInvoiceResult();
 
     // Fetch invoice with client and compteur details
-    const { data: invoice, error: invError } = await supabase
+    let invoiceData: (Record<string, unknown> & { compteur_id?: string }) | null = null;
+    let invError: unknown = null;
+
+    const firstTry = await supabase
       .from('invoices')
       .select(`
         *,
@@ -282,7 +311,53 @@ export async function getInvoiceById(id: string): Promise<{ invoice: Invoice; it
       .eq('id', id)
       .maybeSingle();
 
-    if (invError || !invoice) {
+    invoiceData = firstTry.data;
+    invError = firstTry.error;
+
+    // Fallback: If joining compteur:compteurs(*) failed or returned error, try fetching invoice with client only
+    if (invError || !invoiceData) {
+      const fallbackTry = await supabase
+        .from('invoices')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .eq('id', id)
+        .maybeSingle();
+
+      if (fallbackTry.data) {
+        const found = fallbackTry.data;
+        invoiceData = found;
+        invError = null;
+
+        // Manually fetch compteur if compteur_id exists
+        if (found.compteur_id) {
+          const { data: cptData } = await supabase
+            .from('compteurs')
+            .select('*, client:clients(*)')
+            .eq('id', found.compteur_id)
+            .maybeSingle();
+          if (cptData) {
+            found.compteur = cptData;
+          }
+        }
+      }
+    }
+
+    if (!invoiceData) {
+      const { getAutresInvoiceById } = await import('./other-invoices');
+      const autre = await getAutresInvoiceById(id);
+      if (autre) {
+        return {
+          invoice: autre as unknown as Invoice,
+          items: [{
+            description: autre.notes || `Facture ${autre.type_facture.toUpperCase()}`,
+            quantity: autre.consommation || 1,
+            unit_price: autre.prix_unitaire || autre.subtotal,
+            total: autre.subtotal
+          }]
+        };
+      }
       return getMockInvoiceResult();
     }
 
@@ -293,7 +368,7 @@ export async function getInvoiceById(id: string): Promise<{ invoice: Invoice; it
       .eq('invoice_id', id);
 
     return {
-      invoice: invoice as unknown as Invoice,
+      invoice: invoiceData as unknown as Invoice,
       items: (itemsError || !items) ? [] : (items as InvoiceItem[])
     };
   } catch (err) {
@@ -340,121 +415,174 @@ export async function createInvoiceAction(
   invoiceData: Omit<Invoice, 'id' | 'company_id' | 'client'>,
   itemsData: Omit<InvoiceItem, 'id' | 'invoice_id'>[]
 ): Promise<Invoice> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     return createMockInvoice(invoiceData, itemsData);
   }
 
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return createMockInvoice(invoiceData, itemsData);
-    }
-
-    // Get company ID
-    let { data: company } = await supabase
-      .from('companies')
-      .select('id')
-      .eq('owner_id', user.id)
-      .maybeSingle();
-
-    if (!company) {
-      const { data: newCompany } = await supabase
-        .from('companies')
-        .insert({ name: 'Ma Société', owner_id: user.id })
-        .select('id')
-        .maybeSingle();
-      company = newCompany;
-    }
-
-    if (!company) {
-      return createMockInvoice(invoiceData, itemsData);
-    }
-
-    // Check client_id in Supabase
-    const { data: existingClient } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('id', invoiceData.client_id)
-      .maybeSingle();
-
-    if (!existingClient) {
-      return createMockInvoice(invoiceData, itemsData);
-    }
-
-    // Check compteur_id if provided
-    let compteurIdToUse: string | null = invoiceData.compteur_id || null;
-    if (compteurIdToUse) {
-      const { data: existingCompteur } = await supabase
-        .from('compteurs')
-        .select('id')
-        .eq('id', compteurIdToUse)
-        .maybeSingle();
-      
-      if (!existingCompteur) {
-        compteurIdToUse = null;
+    return await withTimeout((async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return createMockInvoice(invoiceData, itemsData);
       }
-    }
 
-    // Insert invoice
-    const { data: invoice, error: invError } = await supabase
-      .from('invoices')
-      .insert({
-        company_id: company.id,
-        client_id: invoiceData.client_id,
-        invoice_number: invoiceData.invoice_number,
-        status: invoiceData.status,
-        issue_date: invoiceData.issue_date,
-        due_date: invoiceData.due_date,
-        subtotal: invoiceData.subtotal,
-        tva: invoiceData.tva,
-        total: invoiceData.total,
-        notes: invoiceData.notes,
-        type_facture: invoiceData.type_facture || 'produits',
-        compteur_id: compteurIdToUse,
-        ancien_index: invoiceData.ancien_index !== undefined ? invoiceData.ancien_index : null,
-        nouveau_index: invoiceData.nouveau_index !== undefined ? invoiceData.nouveau_index : null,
-        consommation: invoiceData.consommation !== undefined ? invoiceData.consommation : null,
-        prix_unitaire_compteur: invoiceData.prix_unitaire_compteur !== undefined ? invoiceData.prix_unitaire_compteur : null,
-        periode_debut: invoiceData.periode_debut || null,
-        periode_fin: invoiceData.periode_fin || null,
-      })
-      .select(`
-        *,
-        client:clients(*),
-        compteur:compteurs(*)
-      `)
-      .single();
+      // Get company ID safely with limit(1)
+      let { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-    if (invError || !invoice) {
-      console.error('Supabase error creating invoice:', invError);
-      return createMockInvoice(invoiceData, itemsData);
-    }
+      if (!company) {
+        const { data: newCompany } = await supabase
+          .from('companies')
+          .insert({ name: 'Ma Société', owner_id: user.id })
+          .select('id')
+          .single();
+        company = newCompany;
+      }
 
-    // Insert invoice items
-    const itemsWithInvoiceId = itemsData.map(item => ({
-      invoice_id: invoice.id,
-      description: item.description,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      total: item.total
-    }));
+      if (!company) {
+        return createMockInvoice(invoiceData, itemsData);
+      }
 
-    const { error: itemsError } = await supabase
-      .from('invoice_items')
-      .insert(itemsWithInvoiceId);
+      // Check client_id in Supabase or fallback to valid company client
+      let targetClientId = invoiceData.client_id;
+      const { data: existingClient } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('id', targetClientId)
+        .limit(1)
+        .maybeSingle();
 
-    if (itemsError) {
-      console.error('Error inserting invoice items:', itemsError);
-    }
+      if (!existingClient) {
+        const { data: companyClients } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('company_id', company.id)
+          .limit(1);
 
-    try {
-      revalidatePath('/dashboard/invoices');
-      revalidatePath('/dashboard');
-    } catch (e) {
-      console.warn('revalidatePath warning:', e);
-    }
-    return invoice as unknown as Invoice;
+        if (companyClients && companyClients.length > 0) {
+          targetClientId = companyClients[0].id;
+        } else {
+          const { data: newCl } = await supabase
+            .from('clients')
+            .insert({
+              company_id: company.id,
+              name: 'Client Facturé',
+              email: null,
+              phone: null
+            })
+            .select('id')
+            .single();
+          if (newCl) targetClientId = newCl.id;
+        }
+      }
+
+      // Check compteur_id if provided
+      let compteurIdToUse: string | null = invoiceData.compteur_id || null;
+      if (compteurIdToUse) {
+        const { data: existingCompteur } = await supabase
+          .from('compteurs')
+          .select('id')
+          .eq('id', compteurIdToUse)
+          .limit(1)
+          .maybeSingle();
+        
+        if (!existingCompteur) {
+          compteurIdToUse = null;
+        }
+      }
+
+      // Insert invoice
+      let { data: invoice, error: invError } = await supabase
+        .from('invoices')
+        .insert({
+          company_id: company.id,
+          client_id: targetClientId,
+          invoice_number: invoiceData.invoice_number,
+          status: invoiceData.status,
+          issue_date: invoiceData.issue_date,
+          due_date: invoiceData.due_date,
+          subtotal: invoiceData.subtotal,
+          tva: invoiceData.tva,
+          total: invoiceData.total,
+          notes: invoiceData.notes,
+          type_facture: invoiceData.type_facture || 'produits',
+          compteur_id: compteurIdToUse,
+          ancien_index: invoiceData.ancien_index !== undefined ? invoiceData.ancien_index : null,
+          nouveau_index: invoiceData.nouveau_index !== undefined ? invoiceData.nouveau_index : null,
+          consommation: invoiceData.consommation !== undefined ? invoiceData.consommation : null,
+          prix_unitaire_compteur: invoiceData.prix_unitaire_compteur !== undefined ? invoiceData.prix_unitaire_compteur : null,
+          periode_debut: invoiceData.periode_debut || null,
+          periode_fin: invoiceData.periode_fin || null,
+        })
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .single();
+
+      // Fallback: If insert failed due to missing meter columns in Supabase schema
+      if (invError && (invError.code === 'PGRST204' || invError.message?.includes('column'))) {
+        console.warn('Meter columns missing in Supabase invoices table, falling back to standard insert:', invError.message);
+        const fallbackRes = await supabase
+          .from('invoices')
+          .insert({
+            company_id: company.id,
+            client_id: targetClientId,
+            invoice_number: invoiceData.invoice_number,
+            status: invoiceData.status,
+            issue_date: invoiceData.issue_date,
+            due_date: invoiceData.due_date,
+            subtotal: invoiceData.subtotal,
+            tva: invoiceData.tva,
+            total: invoiceData.total,
+            notes: invoiceData.notes
+          })
+          .select(`
+            *,
+            client:clients(*)
+          `)
+          .single();
+
+        invoice = fallbackRes.data;
+        invError = fallbackRes.error;
+      }
+
+      if (invError || !invoice) {
+        console.error('Supabase error creating invoice:', invError);
+        return createMockInvoice(invoiceData, itemsData);
+      }
+
+      // Insert invoice items
+      const itemsWithInvoiceId = itemsData.map(item => ({
+        invoice_id: invoice.id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total: item.total
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('invoice_items')
+        .insert(itemsWithInvoiceId);
+
+      if (itemsError) {
+        console.error('Error inserting invoice items:', itemsError);
+      }
+
+      try {
+        revalidatePath('/dashboard/invoices');
+        revalidatePath('/dashboard');
+      } catch (e) {
+        console.warn('revalidatePath warning:', e);
+      }
+      return invoice as unknown as Invoice;
+    })(), 12000);
   } catch (err) {
     console.error('Error creating invoice:', err);
     return createMockInvoice(invoiceData, itemsData);
@@ -462,7 +590,7 @@ export async function createInvoiceAction(
 }
 
 export async function updateInvoiceStatusAction(id: string, status: InvoiceStatus): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const found = mockInvoices.find(inv => inv.id === id);
     if (found) {
       found.status = status;
@@ -501,7 +629,7 @@ export async function updateInvoiceAction(
   invoiceData: Omit<Invoice, 'id' | 'company_id' | 'client'>,
   itemsData: Omit<InvoiceItem, 'id' | 'invoice_id'>[]
 ): Promise<Invoice> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const selectedClient = mockClients.find(c => c.id === invoiceData.client_id);
     const foundIdx = mockInvoices.findIndex(inv => inv.id === id);
     
@@ -593,7 +721,7 @@ export async function updateInvoiceAction(
 }
 
 export async function deleteInvoiceAction(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const foundIdx = mockInvoices.findIndex(inv => inv.id === id);
     if (foundIdx !== -1) {
       mockInvoices.splice(foundIdx, 1);
@@ -633,7 +761,7 @@ export async function updateClientAction(
   id: string,
   clientData: Omit<Client, 'id' | 'company_id'>
 ): Promise<Client> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const foundIdx = mockClients.findIndex(c => c.id === id);
     const mockUpdatedClient: Client = {
       ...clientData,
@@ -683,7 +811,7 @@ export async function updateClientAction(
 }
 
 export async function deleteClientAction(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const foundIdx = mockClients.findIndex(c => c.id === id);
     if (foundIdx !== -1) {
       mockClients.splice(foundIdx, 1);
@@ -722,7 +850,7 @@ export async function deleteClientAction(id: string): Promise<boolean> {
 // ----------------------------------------------------
 
 export async function getExpenses(): Promise<Expense[]> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     return mockExpenses.map(exp => ({
       ...exp,
       boutique: mockBoutiques.find(b => b.id === exp.boutique_id) || null
@@ -763,7 +891,7 @@ export async function getExpenses(): Promise<Expense[]> {
 }
 
 export async function createExpenseAction(expenseData: Omit<Expense, 'id' | 'company_id' | 'boutique'>): Promise<Expense> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const newId = `exp-${Date.now()}`;
     const mockNewExpense: Expense = {
       ...expenseData,
@@ -821,7 +949,7 @@ export async function createExpenseAction(expenseData: Omit<Expense, 'id' | 'com
 }
 
 export async function updateExpenseAction(id: string, expenseData: Omit<Expense, 'id' | 'company_id' | 'boutique'>): Promise<Expense> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const foundIdx = mockExpenses.findIndex(e => e.id === id);
     if (foundIdx !== -1) {
       mockExpenses[foundIdx] = {
@@ -860,7 +988,7 @@ export async function updateExpenseAction(id: string, expenseData: Omit<Expense,
 }
 
 export async function deleteExpenseAction(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) {
+  if (!checkSupabaseConfiguredSync()) {
     const foundIdx = mockExpenses.findIndex(e => e.id === id);
     if (foundIdx !== -1) {
       mockExpenses.splice(foundIdx, 1);

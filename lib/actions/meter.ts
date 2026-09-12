@@ -3,13 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { mockCompteurs, mockReleves, mockTarifs, mockClients } from '@/lib/mock-data';
-import { Compteur, CompteurType, Releve, Tarif, Invoice, InvoiceItem, Client } from '@/lib/types';
-import { createInvoiceAction, getCompany } from './db';
+import { Compteur, CompteurType, Releve, Tarif, Client } from '@/lib/types';
+import { getCompany, isSupabaseConfigured, withTimeout } from './db';
+import { createAutresInvoiceAction } from './other-invoices';
 import { getDefaultTarifs } from '@/lib/utils/meter-billing';
-
-function isSupabaseConfigured() {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-}
 
 // ----------------------------------------------------
 // COMPTEURS ACTIONS
@@ -51,37 +48,39 @@ export async function getCompteurs(type?: CompteurType, clientId?: string): Prom
     return result;
   };
 
-  if (!isSupabaseConfigured()) {
+  if (!(await isSupabaseConfigured())) {
     return getFilteredMock();
   }
 
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return getFilteredMock();
+    return await withTimeout((async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return getFilteredMock();
 
-    const company = await getCompany();
-    if (!company) return getFilteredMock();
+      const company = await getCompany();
+      if (!company) return getFilteredMock();
 
-    let query = supabase
-      .from('compteurs')
-      .select(`
-        *,
-        client:clients(*)
-      `)
-      .order('created_at', { ascending: false });
+      let query = supabase
+        .from('compteurs')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .order('created_at', { ascending: false });
 
-    if (type) {
-      query = query.eq('type', type);
-    }
-    if (clientId) {
-      query = query.eq('client_id', clientId);
-    }
+      if (type) {
+        query = query.eq('type', type);
+      }
+      if (clientId) {
+        query = query.eq('client_id', clientId);
+      }
 
-    const { data, error } = await query;
-    if (error || !data || data.length === 0) return getFilteredMock();
+      const { data, error } = await query;
+      if (error || !data || data.length === 0) return getFilteredMock();
 
-    return (data as unknown as Compteur[]).filter((c): c is Compteur => Boolean(c && c.id));
+      return (data as unknown as Compteur[]).filter((c): c is Compteur => Boolean(c && c.id));
+    })(), 2000);
   } catch (err) {
     console.error('Error fetching compteurs:', err);
     return getFilteredMock();
@@ -91,7 +90,7 @@ export async function getCompteurs(type?: CompteurType, clientId?: string): Prom
 export async function createCompteurAction(
   data: Omit<Compteur, 'id' | 'boutique_id' | 'created_at'>
 ): Promise<Compteur> {
-  if (!isSupabaseConfigured()) {
+  if (!(await isSupabaseConfigured())) {
     return createMockCompteur(data);
   }
 
@@ -107,6 +106,8 @@ export async function createCompteurAction(
       .from('companies')
       .select('id')
       .eq('owner_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (!company) {
@@ -117,7 +118,7 @@ export async function createCompteurAction(
           owner_id: user.id
         })
         .select('id')
-        .maybeSingle();
+        .single();
       company = newCompany;
     }
 
@@ -125,13 +126,14 @@ export async function createCompteurAction(
       return createMockCompteur(data);
     }
 
-    const { data: boutique } = await supabase
+    const { data: boutiques } = await supabase
       .from('boutiques')
       .select('id')
       .eq('company_id', company.id)
-      .maybeSingle();
+      .order('created_at', { ascending: true })
+      .limit(1);
 
-    let boutiqueId = boutique?.id;
+    let boutiqueId = boutiques && boutiques.length > 0 ? boutiques[0].id : null;
 
     if (!boutiqueId) {
       const { data: newBoutique } = await supabase
@@ -142,7 +144,7 @@ export async function createCompteurAction(
           devise: 'XOF'
         })
         .select('id')
-        .maybeSingle();
+        .single();
 
       boutiqueId = newBoutique?.id;
     }
@@ -201,37 +203,37 @@ export async function createCompteurAction(
 // ----------------------------------------------------
 
 export async function getLastReleve(compteurId: string): Promise<Releve | null> {
-  if (!isSupabaseConfigured()) {
+  const getMockReleve = () => {
     const releves = mockReleves
       .filter(r => r.compteur_id === compteurId)
       .sort((a, b) => new Date(b.date_releve).getTime() - new Date(a.date_releve).getTime());
 
     return releves.length > 0 ? releves[0] : null;
+  };
+
+  if (!(await isSupabaseConfigured())) {
+    return getMockReleve();
   }
 
   try {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('releves')
-      .select('*')
-      .eq('compteur_id', compteurId)
-      .order('date_releve', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    return await withTimeout((async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('releves')
+        .select('*')
+        .eq('compteur_id', compteurId)
+        .order('date_releve', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (error || !data) {
-      const releves = mockReleves
-        .filter(r => r.compteur_id === compteurId)
-        .sort((a, b) => new Date(b.date_releve).getTime() - new Date(a.date_releve).getTime());
-      return releves.length > 0 ? releves[0] : null;
-    }
-    return data as Releve;
+      if (error || !data) {
+        return getMockReleve();
+      }
+      return data as Releve;
+    })(), 2000);
   } catch {
-    const releves = mockReleves
-      .filter(r => r.compteur_id === compteurId)
-      .sort((a, b) => new Date(b.date_releve).getTime() - new Date(a.date_releve).getTime());
-    return releves.length > 0 ? releves[0] : null;
+    return getMockReleve();
   }
 }
 
@@ -246,7 +248,7 @@ export async function createReleveAction(data: Omit<Releve, 'id' | 'created_at'>
     return newReleve;
   };
 
-  if (!isSupabaseConfigured()) {
+  if (!(await isSupabaseConfigured())) {
     return createMockReleve();
   }
 
@@ -294,7 +296,7 @@ export async function createReleveAction(data: Omit<Releve, 'id' | 'created_at'>
 // ----------------------------------------------------
 
 export async function getTarifs(type: CompteurType): Promise<Tarif[]> {
-  if (!isSupabaseConfigured()) {
+  if (!(await isSupabaseConfigured())) {
     const found = mockTarifs.filter(t => t.type === type && t.actif);
     return found.length > 0 ? found : getDefaultTarifs(type);
   }
@@ -347,40 +349,32 @@ export interface CreateMeterInvoiceParams {
   status: 'draft' | 'sent';
 }
 
-export async function createMeterInvoiceAction(params: CreateMeterInvoiceParams): Promise<Invoice> {
+export async function createMeterInvoiceAction(params: CreateMeterInvoiceParams) {
   const consumption = params.new_index !== undefined && params.previous_index !== undefined
     ? Math.max(0, params.new_index - params.previous_index)
     : params.quantity;
 
-  // 1. Create standard invoice using existing createInvoiceAction engine
-  const invoiceData = {
-    invoice_number: `FAC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+  const invNum = `FAC-${(params.type_facture || 'AUTRE').toUpperCase().slice(0, 4)}-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const createdInvoice = await createAutresInvoiceAction({
     client_id: params.client_id,
+    compteur_id: params.compteur_id || null,
+    invoice_number: invNum,
+    type_facture: params.type_facture,
     status: params.status,
     issue_date: params.issue_date,
     due_date: params.due_date,
-    subtotal: params.subtotal,
-    tva: params.tva,
-    total: params.total,
-    notes: params.notes || null,
-    type_facture: params.type_facture,
-    compteur_id: params.compteur_id || null,
     ancien_index: params.previous_index !== undefined ? params.previous_index : null,
     nouveau_index: params.new_index !== undefined ? params.new_index : null,
     consommation: consumption,
-    prix_unitaire_compteur: params.unit_price,
+    prix_unitaire: params.unit_price,
+    subtotal: params.subtotal,
+    tva: params.tva,
+    total: params.total,
     periode_debut: params.periode_debut || params.issue_date,
     periode_fin: params.periode_fin || params.due_date,
-  };
-
-  const itemData: Omit<InvoiceItem, 'id' | 'invoice_id'> = {
-    description: params.description,
-    quantity: params.quantity,
-    unit_price: params.unit_price,
-    total: params.subtotal
-  };
-
-  const createdInvoice = await createInvoiceAction(invoiceData, [itemData]);
+    notes: params.notes || params.description
+  });
 
   // 2. If a new meter reading index was provided, record it in releves table
   if (params.compteur_id && params.new_index !== undefined && !isNaN(params.new_index)) {
@@ -397,5 +391,6 @@ export async function createMeterInvoiceAction(params: CreateMeterInvoiceParams)
   } catch (e) {
     console.warn('revalidatePath warning:', e);
   }
+
   return createdInvoice;
 }

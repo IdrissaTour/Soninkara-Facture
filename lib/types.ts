@@ -87,6 +87,34 @@ export interface Invoice {
   compteur?: Compteur;
 }
 
+export interface AutresInvoice {
+  id: string;
+  company_id: string;
+  client_id?: string | null;
+  compteur_id?: string | null;
+  invoice_number: string;
+  type_facture: 'eau' | 'electricite' | 'connexion' | 'forfait' | string;
+  status: InvoiceStatus;
+  issue_date: string;
+  due_date: string;
+  ancien_index?: number | null;
+  nouveau_index?: number | null;
+  consommation?: number | null;
+  prix_unitaire?: number | null;
+  subtotal: number;
+  tva: number;
+  total: number;
+  periode_debut?: string | null;
+  periode_fin?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+
+  // Joined fields for display
+  client?: Client | null;
+  compteur?: Compteur | null;
+}
+
 export interface InvoiceItem {
   id?: string;
   invoice_id?: string;

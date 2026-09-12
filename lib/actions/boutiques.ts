@@ -62,6 +62,8 @@ export async function getBoutiques(): Promise<Boutique[]> {
       .from('companies')
       .select('id')
       .eq('owner_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (!company) return [];
@@ -709,6 +711,8 @@ export async function getAllStockAlerts(): Promise<StockAlert[]> {
       .from('companies')
       .select('id')
       .eq('owner_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (!company) return [];

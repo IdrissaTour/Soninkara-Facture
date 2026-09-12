@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings, LogOut, X, Shield, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FileText, Gauge, TrendingDown, Store, Users, Settings, LogOut, X, Shield, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/lib/supabase/client';
 
@@ -39,6 +39,10 @@ export default function MobileNav({
 
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Factures Produits', href: '/dashboard/invoices?tab=produits', icon: FileText },
+    { name: 'Eau, Élec & Wifi', href: '/dashboard/services', icon: Gauge },
+    { name: 'Dépenses', href: '/dashboard/expenses', icon: TrendingDown },
+    { name: 'Boutiques & Stocks', href: '/dashboard/boutiques', icon: Store },
     { name: 'Clients', href: '/dashboard/clients', icon: Users },
     { name: 'Abonnement', href: '/dashboard/abonnement', icon: CreditCard },
     { name: 'Paramètres', href: '/dashboard/settings', icon: Settings },

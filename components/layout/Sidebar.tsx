@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, Users, Settings, LogOut, TrendingDown, Shield, Store, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FileText, Gauge, Users, Settings, LogOut, TrendingDown, Shield, Store, CreditCard } from 'lucide-react';
 import { clsx } from 'clsx';
 import { createClient } from '@/lib/supabase/client';
 
@@ -35,7 +35,8 @@ export default function Sidebar({
 
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Factures', href: '/dashboard/invoices', icon: FileText },
+    { name: 'Factures Produits', href: '/dashboard/invoices?tab=produits', icon: FileText },
+    { name: 'Eau, Élec & Wifi', href: '/dashboard/services', icon: Gauge },
     { name: 'Dépenses', href: '/dashboard/expenses', icon: TrendingDown },
     { name: 'Boutiques & Stocks', href: '/dashboard/boutiques', icon: Store },
     { name: 'Clients', href: '/dashboard/clients', icon: Users },
